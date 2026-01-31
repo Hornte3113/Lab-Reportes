@@ -1,9 +1,17 @@
 -- View 1: Ventas por categoria con CTE
 --que devuelve: el analisis de ventas por categoria de productos
 --Grain: Una fila por categoria
---Metricas: 
---- total_ordenes: cantidad de órdenes que incluyen productos
--- prouctos_
+-- MÉTRICAS: 
+--total_ordenes: cantidad de órdenes que incluyen productos de la categoría
+--productos_vendidos: cantidad total de items vendidos
+--ingresos_totales: suma de ingresos
+--ticket_promedio: ingreso promedio por orden
+--participacion_pct: % de participación en ventas totales
+--POR QUÉ GROUP BY: Agrupamos por categoría para consolidar métricas
+--POR QUÉ HAVING: No aplica en esta vista
+--VERIFY debe ser ~100:
+--SELECT SUM(participacion_pct) FROM view_ventas_por_categoria; 
+--SELECT * FROM view_ventas_por_categoria ORDER BY ingresos_totales DESC;
 
 CREATE OR REPLACE VIEW view_ventas_por_categoria AS
 WITH ventas_detalle AS (
