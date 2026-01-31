@@ -102,3 +102,40 @@ WHERE u.activo = TRUE
 GROUP BY u.id, u.nombre, u.email
 HAVING COUNT(DISTINCT o.id) > 0
 ORDER BY gasto_total DESC;
+
+--view 4 estado de ordenes con COALESCE  Y CASE
+CREATE OR REPLACE VIEW view_estado_ordenes AS
+SELECT
+o.status,
+COUNT(o.id) as cantidad_ordenes,
+COALESCE(SUM(o.total), 0) as valor_total,
+ROUND(COALESCE(AVG(o.total), 0), 2) as valor_promedio,
+ROUND(COALESCE(AVG((SELECT COUNT (*) FROM orden_detalles od2 WHERE od2.orden_id = o.id)),
+0), 2) as items_promedio,
+ROUND(COALESCE(AVG(EXTRACT(DAY FROM (NOW() - o.created_at))),
+0), 1) as dias_promedio,
+--usamos case para la prioridad de atencion
+
+CASE 
+WHEN o.status =  'pendiente' THEN 1
+WHEN o.status =  'pagado' THEN 2
+WHEN o.status =  'enviado' THEN 3
+WHEN o.status =  'entregado' THEN 4
+WHEN o.status =  'cancelado' THEN 5
+ELSE 6
+END as prioridad,
+--case para la descripcion del estado
+CASE
+WHEN o.status =  'pendiente' THEN  'Requiere pago'
+WHEN o.stataus =  'pagado' THEN  'Listo para envio'
+WHEN o.stataus =  'enviado' THEN  'En transito' 
+WHEN o.stataus =  'entregado' THEN  'Completado'
+WHEN o.stataus =  'cancelado' THEN  'cancelado'
+ELSE  'Desconocido'
+END as descripcion_estado
+
+FROM ordenes o
+
+GROUP BY o.status
+HAVING COUNT(o.id) > 0
+ORDER BY prioridad;
