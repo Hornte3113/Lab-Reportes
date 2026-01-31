@@ -139,3 +139,55 @@ FROM ordenes o
 GROUP BY o.status
 HAVING COUNT(o.id) > 0
 ORDER BY prioridad;
+
+
+--VIEW 5 Inventario y Rotació
+
+CREATE OR REPLACE VIEW view_inventario_rotacion AS
+SELECT 
+    p.id as producto_id,
+    p.codigo,
+    p.nombre as producto,
+    c.nombre as categoria,
+    p.stock as stock_actual,
+    p.precio as precio_unitario,
+    COALESCE(SUM(od.cantidad), 0) as unidades_vendidas,
+    -- Tasa de rotación (ventas / stock, 0 si no hay stock)
+    CASE 
+        WHEN p.stock > 0 THEN ROUND(COALESCE(SUM(od.cantidad), 0)::NUMERIC / p.stock, 2)
+        ELSE 0
+    END as tasa_rotacion,
+    ROUND(p.stock * p.precio, 2) as valor_inventario,
+    COALESCE(SUM(od.subtotal), 0) as ingresos_generados,
+    -- ROI del producto (ingresos / valor inventario)
+    CASE 
+        WHEN p.stock > 0 THEN 
+            ROUND(
+                COALESCE(SUM(od.subtotal), 0) / NULLIF(p.stock * p.precio, 0) * 100,
+                2
+            )
+        ELSE 0
+    END as roi_producto,
+    -- CASE para nivel de stock
+    CASE 
+        WHEN p.stock = 0 THEN 'Sin Stock'
+        WHEN p.stock < 10 THEN 'Crítico'
+        WHEN p.stock < 50 THEN 'Bajo'
+        WHEN p.stock < 100 THEN 'Normal'
+        ELSE 'Alto'
+    END as nivel_stock,
+    -- CASE para acción recomendada basada en rotación y stock
+    CASE 
+        WHEN p.stock = 0 AND COALESCE(SUM(od.cantidad), 0) > 0 THEN 'Reabastecer Urgente'
+        WHEN p.stock < 10 AND COALESCE(SUM(od.cantidad), 0) > 5 THEN 'Reabastecer'
+        WHEN p.stock > 200 AND COALESCE(SUM(od.cantidad), 0) = 0 THEN 'Promocionar'
+        WHEN p.stock > 100 AND COALESCE(SUM(od.cantidad), 0) < 5 THEN 'Revisar Demanda'
+        ELSE 'Mantener'
+    END as accion_recomendada,
+    p.activo
+FROM productos p
+INNER JOIN categorias c ON p.categoria_id = c.id
+LEFT JOIN orden_detalles od ON p.id = od.producto_id
+LEFT JOIN ordenes o ON od.orden_id = o.id AND o.status != 'cancelado'
+GROUP BY p.id, p.codigo, p.nombre, c.nombre, p.stock, p.precio, p.activo
+ORDER BY tasa_rotacion DESC;
