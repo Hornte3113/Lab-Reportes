@@ -9,3 +9,15 @@ export interface EstadoOrden {
   prioridad: number;
   descripcion_estado: string;
 }
+
+export interface Cliente {
+  usuario_id: number;
+  nombre: string;
+  email: string;
+  gasto_total: number;
+  ordenes_totales: number;
+  ultima_orden: Date;
+  dias_desde_ultima_compra: number;
+  promedio_ticket: number;
+  tipo_cliente: string; // 'VIP', 'Regular', etc.
+}
