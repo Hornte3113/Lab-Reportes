@@ -1,0 +1,18 @@
+# Docker Compose para PostgreSQL
+
+version: '3.8'
+
+services:
+  # Servicio de Base de Datos
+  db:
+    image: postgres:15-alpine
+    container_name: lab_reportes_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root_password
+      POSTGRES_DB: postgres
+    ports:
+      - "5437:5432"
+    volumes:
+      # Esto carga scripts SQL automáticamente al iniciar
+      - ./db:/docker-entrypoint-initdb.d
