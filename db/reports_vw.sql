@@ -52,7 +52,7 @@ p.codigo,
 p.nombre as producto,
 c.nombre as categoria,
 COALESCE(SUM(od.cantidad), 0) as  unidades_vendidas,
-COALESCE(SUM(od.subtotal) 0) as ingresos_generados,
+COALESCE(SUM(od.subtotal), 0) as ingresos_generados,
 COUNT(DISTINCT od.orden_id) as ordenes_incluido,
 p.precio as precio_actual,
 p.stock as stock_actual,
@@ -68,7 +68,7 @@ INNER JOIN categorias c ON p.categoria_id = c.id
 LEFT JOIN orden_detalles od ON p.id = od.producto_id
 LEFT JOIN ordenes o ON od.orden_id = o.id AND o.status !=  'cancelado'
 GROUP BY p.id, p.codigo, p.nombre, c.nombre, p.precio, p.stock
-HAVING COALESCE(SU(od.cantidad), 0) > 0
+HAVING COALESCE(SUM(od.cantidad), 0) > 0
 ORDER BY unidades_vendidas DESC;
 
 -- View 3: Clasificación de Clientes (CASE)
@@ -110,6 +110,9 @@ ORDER BY gasto_total DESC;
 
 --view 4 estado de ordenes con COALESCE  Y CASE
 -- View 4: Estado de Órdenes
+-- Métricas: Cantidad de órdenes, valor total, promedios de valor/items/días.
+-- GROUP BY: Agrupa las órdenes por su estado actual para obtener totales operativos.
+-- HAVING: Excluye estados que no tengan ninguna orden registrada.
 -- Devuelve: Resumen operativo de los pedidos por estado.
 -- Grain: Una fila por cada estado de orden (pendiente, pagado, etc.).
 -- VERIFY: SELECT status, cantidad_ordenes FROM view_estado_ordenes;
@@ -136,10 +139,10 @@ END as prioridad,
 --case para la descripcion del estado
 CASE
 WHEN o.status =  'pendiente' THEN  'Requiere pago'
-WHEN o.stataus =  'pagado' THEN  'Listo para envio'
-WHEN o.stataus =  'enviado' THEN  'En transito' 
-WHEN o.stataus =  'entregado' THEN  'Completado'
-WHEN o.stataus =  'cancelado' THEN  'cancelado'
+WHEN o.status =  'pagado' THEN  'Listo para envio'
+WHEN o.status =  'enviado' THEN  'En transito' 
+WHEN o.status =  'entregado' THEN  'Completado'
+WHEN o.status =  'cancelado' THEN  'cancelado'
 ELSE  'Desconocido'
 END as descripcion_estado
 
@@ -155,6 +158,8 @@ ORDER BY prioridad;
 -- Devuelve: Análisis de stock y eficiencia de ventas.
 -- Grain: Una fila por producto.
 -- VERIFY: SELECT producto, nivel_stock, accion_recomendada FROM view_inventario_rotacion;
+-- Métricas: Unidades vendidas, tasa de rotación, valor de inventario y ROI.
+-- GROUP BY: Necesario para sumar las ventas (orden_detalles) por cada producto.
 CREATE OR REPLACE VIEW view_inventario_rotacion AS
 SELECT 
     p.id as producto_id,
