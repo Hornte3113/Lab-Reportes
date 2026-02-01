@@ -24,7 +24,7 @@ export default async function ReporteEstadoOrdenes() {
 
   return (
     <div className="p-8 font-sans">
-      {/* Navegación simple */}
+      {/* Navegación*/}
       <div className="mb-6">
         <Link href="/" className="text-blue-600 hover:underline">
           ← Volver al Dashboard
