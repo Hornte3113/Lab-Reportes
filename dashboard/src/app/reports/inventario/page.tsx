@@ -1,4 +1,3 @@
-// src/app/reports/inventario/page.tsx
 import { query } from '@/lib/db';
 import { z } from 'zod';
 
@@ -52,7 +51,7 @@ export default async function InventarioPage({
           ))}
         </tbody>
       </table>
-      {/* Botones de navegación simples para paginación */}
+   
       <div className="mt-4 flex gap-2">
         {page > 1 && <a href={`?page=${page - 1}`} className="px-4 py-2 bg-blue-500 text-white rounded">Anterior</a>}
         <a href={`?page=${page + 1}`} className="px-4 py-2 bg-blue-500 text-white rounded">Siguiente</a>
