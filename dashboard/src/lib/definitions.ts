@@ -1,23 +1,41 @@
-// Tipo exacto que devuelve la view_estado_ordenes
-export interface EstadoOrden {
-  status: string;
-  cantidad_ordenes: number; // Postgres devuelve 'bigint' como string a veces, pero 'pg' lo maneja
-  valor_total: number;
-  valor_promedio: number;
-  items_promedio: number;
-  dias_promedio: number;
-  prioridad: number;
-  descripcion_estado: string;
+// Interfaces TypeScript que coinciden exactamente con las VIEWS de PostgreSQL
+
+// View 1: view_ventas_por_categoria
+export interface VentaCategoria {
+  categoria_id: number;
+  categoria: string;
+  total_ordenes: number;
+  productos_vendidos: number;
+  ingresos_totales: number;
+  ticket_promedio: number;
+  participacion_pct: number;
 }
 
-export interface Cliente {
+// View 2: view_top_productos
+export interface TopProducto {
+  producto_id: number;
+  codigo: string;
+  producto: string;
+  unidades_vendidas: number;
+  ingresos_generados: number;
+  ordenes_incluido: number;
+  precio_actual: number;
+  stock_actual: number;
+  ranking_ventas: number;
+  ranking_ingresos: number;
+  pct_acumulado: number;
+}
+
+// View 3: view_clasificacion_clientes
+export interface ClasificacionCliente {
   usuario_id: number;
-  nombre: string;
+  usuario: string;
   email: string;
+  total_ordenes: number;
   gasto_total: number;
-  ordenes_totales: number;
-  ultima_orden: Date;
-  dias_desde_ultima_compra: number;
-  promedio_ticket: number;
-  tipo_cliente: string; // 'VIP', 'Regular', etc.
+  gasto_promedio: number;
+  items_comprados: number;
+  segmento_cliente: 'VIP' | 'Premium' | 'Regular' | 'Nuevo';
+  estado_actividad: 'Muy Activo' | 'Activo' | 'Ocasional' | 'Sin Compras';
+  ultima_compra: Date;
 }
