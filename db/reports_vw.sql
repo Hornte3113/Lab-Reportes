@@ -1,8 +1,9 @@
--- View 1: Ventas por categoria con CTE
---que devuelve: 
---Grain: Una fila por categoria
--- MÉTRICAS: 
---VERIFY: 
+-- View 1: Ventas por categoría con CTE
+-- Devuelve: Un resumen financiero por categoría de producto.
+-- Grain: Una fila por categoría.
+-- Métricas: Total de órdenes, unidades vendidas, ingresos, ticket promedio y % de participación.
+-- GROUP BY: Necesario para agregar las métricas de órdenes y detalles por cada categoría.
+-- VERIFY: SELECT * FROM view_ventas_por_categoria;
 CREATE OR REPLACE VIEW view_ventas_por_categoria AS
 WITH ventas_detalle AS (
     SELECT
@@ -38,9 +39,12 @@ GROUP BY vd.categoria_id, vd.categoria, t.gran_total
 ORDER BY ingresos_totales DESC;
 
 
----view 2 Top de Prodcutos
---devuelve el ranking de de productos más vendidos
-
+-- View 2: Top de Productos (Window Functions)
+-- Devuelve: Ranking de productos basado en ventas e ingresos.
+-- Grain: Una fila por producto activo con ventas.
+-- Métricas: Unidades, ingresos, posición en ranking y % acumulado (Pareto).
+-- HAVING: Filtra productos que no han tenido ninguna venta.
+-- VERIFY: SELECT producto, ranking_ventas FROM view_top_productos WHERE ranking_ventas <= 5;
 CREATE OR REPLACE VIEW view_top_productos AS
 SELECT 
 p.id as producto_id,
@@ -67,8 +71,11 @@ GROUP BY p.id, p.codigo, p.nombre, c.nombre, p.precio, p.stock
 HAVING COALESCE(SU(od.cantidad), 0) > 0
 ORDER BY unidades_vendidas DESC;
 
--- VIEW 3
-
+-- View 3: Clasificación de Clientes (CASE)
+-- Devuelve: Segmentación de clientes según su comportamiento de compra.
+-- Grain: Una fila por cliente con compras.
+-- Métricas: Total gastado, promedio por orden, segmento (VIP/Regular) y actividad.
+-- VERIFY: SELECT usuario, segmento_cliente FROM view_clasificacion_clientes;
 CREATE OR REPLACE VIEW view_clasificacion_clientes AS
 SELECT 
     u.id as usuario_id,
@@ -102,6 +109,10 @@ HAVING COUNT(DISTINCT o.id) > 0
 ORDER BY gasto_total DESC;
 
 --view 4 estado de ordenes con COALESCE  Y CASE
+-- View 4: Estado de Órdenes
+-- Devuelve: Resumen operativo de los pedidos por estado.
+-- Grain: Una fila por cada estado de orden (pendiente, pagado, etc.).
+-- VERIFY: SELECT status, cantidad_ordenes FROM view_estado_ordenes;
 CREATE OR REPLACE VIEW view_estado_ordenes AS
 SELECT
 o.status,
@@ -140,7 +151,10 @@ ORDER BY prioridad;
 
 
 --VIEW 5 Inventario y Rotació
-
+-- View 5: Inventario y Rotación
+-- Devuelve: Análisis de stock y eficiencia de ventas.
+-- Grain: Una fila por producto.
+-- VERIFY: SELECT producto, nivel_stock, accion_recomendada FROM view_inventario_rotacion;
 CREATE OR REPLACE VIEW view_inventario_rotacion AS
 SELECT 
     p.id as producto_id,
