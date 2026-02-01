@@ -46,27 +46,27 @@ ORDER BY ingresos_totales DESC;
 -- HAVING: Filtra productos que no han tenido ninguna venta.
 -- VERIFY: SELECT producto, ranking_ventas FROM view_top_productos WHERE ranking_ventas <= 5;
 CREATE OR REPLACE VIEW view_top_productos AS
-SELECT 
-p.id as producto_id,
-p.codigo,
-p.nombre as producto,
-c.nombre as categoria,
-COALESCE(SUM(od.cantidad), 0) as  unidades_vendidas,
-COALESCE(SUM(od.subtotal), 0) as ingresos_generados,
-COUNT(DISTINCT od.orden_id) as ordenes_incluido,
-p.precio as precio_actual,
-p.stock as stock_actual,
-
-ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(od.cantidad), 0) DESC) as ranking_ventas,
-ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(od.subtotal), 0) DESC) as ranking_ingresos,
-ROUND(
-    100.0 * SUM(COALESCE(od.subtotal, 0)) OVER (ORDER BY COALESCE(SUM(od.subtotal), 0) DESC) / 
-    NULLIF(SUM(COALESCE(od.subtotal, 0)) OVER (), 0), 2
-) as pct_acumulado
-FROM productos p 
+SELECT
+    p.id as producto_id,
+    p.codigo,
+    p.nombre as producto,
+    COALESCE(SUM(od.cantidad), 0) as unidades_vendidas,
+    COALESCE(SUM(od.subtotal), 0) as ingresos_generados,
+    COUNT(DISTINCT od.orden_id) as ordenes_incluido,
+    p.precio as precio_actual,
+    p.stock as stock_actual,
+    -- Ranking basado en unidades vendidas
+    ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(od.cantidad), 0) DESC) as ranking_ventas,
+    -- Ranking basado en ingresos
+    ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(od.subtotal), 0) DESC) as ranking_ingresos,
+    ROUND(
+        100.0 * SUM(COALESCE(SUM(od.subtotal), 0)) OVER (ORDER BY COALESCE(SUM(od.subtotal), 0) DESC) /
+        NULLIF(SUM(COALESCE(SUM(od.subtotal), 0)) OVER (), 0), 2
+    ) as pct_acumulado
+FROM productos p
 INNER JOIN categorias c ON p.categoria_id = c.id
 LEFT JOIN orden_detalles od ON p.id = od.producto_id
-LEFT JOIN ordenes o ON od.orden_id = o.id AND o.status !=  'cancelado'
+LEFT JOIN ordenes o ON od.orden_id = o.id AND o.status != 'cancelado'
 GROUP BY p.id, p.codigo, p.nombre, c.nombre, p.precio, p.stock
 HAVING COALESCE(SUM(od.cantidad), 0) > 0
 ORDER BY unidades_vendidas DESC;
