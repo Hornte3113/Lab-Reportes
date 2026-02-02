@@ -85,7 +85,7 @@ export default async function TopProductosPage({
 
       {/* Formulario de Filtros (REQUISITO: Validado con Zod) */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
-        <form className="flex flex-wrap gap-4 items-end">
+        <form method="GET" action="/reports/top-productos" className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Mínimo Unidades Vendidas
@@ -115,6 +115,9 @@ export default async function TopProductosPage({
               <option value="50">50</option>
             </select>
           </div>
+
+          {/* Campo oculto para resetear página a 1 cuando se cambian filtros */}
+          <input type="hidden" name="page" value="1" />
 
           <button
             type="submit"

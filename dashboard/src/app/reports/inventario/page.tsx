@@ -1,3 +1,4 @@
+// dashboard/src/app/reports/inventario/page.tsx
 import { query } from '@/lib/db';
 import { z } from 'zod';
 import Link from 'next/link';
@@ -78,7 +79,7 @@ export default async function InventarioPage({
 
       {/* Formulario de Filtros */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
-        <form className="flex flex-wrap gap-4 items-end">
+        <form method="GET" action="/reports/inventario" className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nivel de Stock
@@ -112,6 +113,9 @@ export default async function InventarioPage({
               <option value="50">50</option>
             </select>
           </div>
+
+          {/* Campo oculto para resetear página a 1 cuando se cambian filtros */}
+          <input type="hidden" name="page" value="1" />
 
           <button
             type="submit"
