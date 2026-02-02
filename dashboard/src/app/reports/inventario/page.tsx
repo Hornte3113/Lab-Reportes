@@ -3,6 +3,9 @@ import { query } from '@/lib/db';
 import { z } from 'zod';
 import Link from 'next/link';
 
+// Forzar renderizado dinámico (no pre-renderizar en build)
+export const dynamic = 'force-dynamic';
+
 // Schema de validación con filtros (REQUISITO: Zod + parametrizado)
 const FilterSchema = z.object({
   page: z.coerce.number().min(1).default(1),

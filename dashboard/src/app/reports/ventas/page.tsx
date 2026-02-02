@@ -1,6 +1,9 @@
 import { query } from '@/lib/db';
 import Link from 'next/link';
 
+// Forzar renderizado dinámico (no pre-renderizar en build)
+export const dynamic = 'force-dynamic';
+
 // Interfaz que coincide con view_ventas_por_categoria
 interface VentaCategoria {
   categoria_id: number;

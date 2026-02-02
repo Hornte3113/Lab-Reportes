@@ -3,6 +3,9 @@ import { query } from '@/lib/db';
 import { z } from 'zod';
 import Link from 'next/link';
 
+// Forzar renderizado dinámico (no pre-renderizar en build)
+export const dynamic = 'force-dynamic';
+
 // Interfaz que coincide con view_top_productos
 interface TopProducto {
   producto_id: number;

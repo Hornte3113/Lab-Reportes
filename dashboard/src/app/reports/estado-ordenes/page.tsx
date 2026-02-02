@@ -2,6 +2,9 @@ import { query } from '@/lib/db';
 import { EstadoOrden } from '@/lib/definitions';
 import Link from 'next/link';
 
+// Forzar renderizado dinámico (no pre-renderizar en build)
+export const dynamic = 'force-dynamic';
+
 // 1. Función para obtener datos (Data Fetching)
 async function getEstadoOrdenes() {
   // Consultamos la vista directamente. Ordenamos por prioridad como definiste en SQL.

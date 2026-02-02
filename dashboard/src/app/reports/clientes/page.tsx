@@ -2,6 +2,9 @@
 import { query } from '@/lib/db';
 import Link from 'next/link';
 
+// Forzar renderizado dinámico (no pre-renderizar en build)
+export const dynamic = 'force-dynamic';
+
 // Interface que coincide EXACTAMENTE con view_clasificacion_clientes
 interface ClasificacionCliente {
   usuario_id: number;
