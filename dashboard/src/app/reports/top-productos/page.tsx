@@ -1,7 +1,9 @@
+// dashboard/src/app/reports/top-productos/page.tsx
 import { query } from '@/lib/db';
 import { z } from 'zod';
 import Link from 'next/link';
 
+// Interfaz que coincide con view_top_productos
 interface TopProducto {
   producto_id: number;
   codigo: string;
@@ -16,7 +18,7 @@ interface TopProducto {
   pct_acumulado: number;
 }
 
-// Schema de validación Zod para filtros y paginación
+// Schema de validación Zod para filtros y paginación (REQUISITO)
 const FilterSchema = z.object({
   minVentas: z.coerce.number().min(0).default(0),
   page: z.coerce.number().min(1).default(1),
@@ -252,7 +254,7 @@ export default async function TopProductosPage({
         </table>
       </div>
 
-      {/* Controles para la paginacion */}
+      {/* Controles de Paginación (REQUISITO) */}
       {totalPages > 1 && (
         <div className="flex justify-between items-center bg-gray-100 p-4 rounded-lg">
           <span className="text-sm text-gray-700">
