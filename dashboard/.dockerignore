@@ -1,0 +1,60 @@
+# ============================================
+# .dockerignore - Archivos a excluir del build
+# ============================================
+# Reduce el tamaño del contexto de build y acelera el proceso
+
+# Dependencias
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build de Next.js
+.next
+out
+build
+
+# Caché
+.cache
+*.tsbuildinfo
+
+# Archivos de prueba
+coverage
+.nyc_output
+
+# Variables de entorno
+.env*
+!.env.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Temporal
+tmp
+temp
+
+# Documentación de desarrollo
+README.md
+CHANGELOG.md
+LICENSE
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml

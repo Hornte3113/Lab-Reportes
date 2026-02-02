@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Habilitar modo standalone para Docker
+  // Esto genera un bundle autónomo más pequeño y eficiente
+  output: 'standalone',
+  
+
 };
 
 export default nextConfig;

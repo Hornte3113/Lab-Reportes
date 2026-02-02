@@ -1,18 +1,96 @@
-# Docker Compose para PostgreSQL
+# ============================================
+# Docker Compose - Lab Reportes
+# PostgreSQL + Next.js Dashboard
+# ============================================
 
 version: '3.8'
 
 services:
-  # Servicio de Base de Datos
+  # ==========================================
+  # Servicio de Base de Datos (PostgreSQL)
+  # ==========================================
   db:
     image: postgres:15-alpine
     container_name: lab_reportes_db
+    
+    # Variables de entorno para PostgreSQL
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root_password
       POSTGRES_DB: postgres
+    
+    # Puerto expuesto (host:container)
     ports:
       - "5437:5432"
+    
+    # Volúmenes para persistencia y scripts SQL
     volumes:
-      # Esto carga scripts SQL automáticamente al iniciar
+      # Scripts SQL se ejecutan automáticamente al iniciar
+      # Se ejecutan en orden alfabético: 01_schema.sql, 02_seed.sql, etc.
       - ./db:/docker-entrypoint-initdb.d
+      
+      # Persistencia de datos (opcional, comentado por defecto)
+      # Descomenta la siguiente línea para persistir datos entre reinicios
+      # - postgres_data:/var/lib/postgresql/data
+    
+    # Health check para verificar que PostgreSQL esté listo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # Red interna
+    networks:
+      - app-network
+
+  # ==========================================
+  # Servicio de Dashboard (Next.js)
+  # ==========================================
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    
+    container_name: lab_reportes_dashboard
+    
+    # Variables de entorno para la aplicación
+    environment:
+      # Conexión a la base de datos
+      # IMPORTANTE: El host es 'db' (nombre del servicio), no 'localhost'
+      DATABASE_URL: "postgresql://app_client:secure_password@db:5432/postgres"
+      
+      # Variables de Next.js
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+    
+    # Puerto expuesto (host:container)
+    ports:
+      - "3000:3000"
+    
+    # Esperar a que PostgreSQL esté listo antes de iniciar
+    depends_on:
+      db:
+        condition: service_healthy
+    
+    # Red interna
+    networks:
+      - app-network
+    
+    # Restart policy
+    restart: unless-stopped
+
+# ==========================================
+# Redes
+# ==========================================
+networks:
+  app-network:
+    driver: bridge
+
+# ==========================================
+# Volúmenes (opcional)
+# ==========================================
+# Descomenta para habilitar persistencia de datos
+# volumes:
+#   postgres_data:
+#     driver: local
