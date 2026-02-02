@@ -1,10 +1,8 @@
 import { query } from '@/lib/db';
 import Link from 'next/link';
 
-// Forzar renderizado dinámico (no pre-renderizar en build)
 export const dynamic = 'force-dynamic';
 
-// Interfaz que coincide con view_ventas_por_categoria
 interface VentaCategoria {
   categoria_id: number;
   categoria: string;
@@ -15,7 +13,7 @@ interface VentaCategoria {
   participacion_pct: number;
 }
 
-// 1. Función para obtener datos
+//Función para obtener datos
 async function getVentasPorCategoria() {
   const result = await query(
     'SELECT * FROM view_ventas_por_categoria ORDER BY ingresos_totales DESC'
@@ -24,10 +22,10 @@ async function getVentasPorCategoria() {
 }
 
 export default async function ReporteVentas() {
-  // 2. Ejecutar consulta al cargar
+  //jecutar consulta al cargar
   const datos = await getVentasPorCategoria();
 
-  // 3. Calcular KPIs destacados
+  // Calcular KPIs destacados
   const kpiTotalIngresos = datos.reduce(
     (acc, row) => acc + Number(row.ingresos_totales), 
     0
@@ -43,7 +41,7 @@ export default async function ReporteVentas() {
     0
   ) / datos.length;
 
-  // 4. Identificar la categoría más vendida
+  // Identificar la categoría más vendida
   const categoriaTop = datos[0]; // Ya viene ordenado DESC
 
   return (

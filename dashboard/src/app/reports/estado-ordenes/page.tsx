@@ -2,12 +2,12 @@ import { query } from '@/lib/db';
 import { EstadoOrden } from '@/lib/definitions';
 import Link from 'next/link';
 
-// Forzar renderizado dinámico (no pre-renderizar en build)
+// Forzar renderizado dinámico (no pre-renderizar en build) para que agarre el comando
 export const dynamic = 'force-dynamic';
 
-// 1. Función para obtener datos (Data Fetching)
+// Función para obtener datos 
 async function getEstadoOrdenes() {
-  // Consultamos la vista directamente. Ordenamos por prioridad como definiste en SQL.
+  
   const result = await query(
     'SELECT * FROM view_estado_ordenes ORDER BY prioridad ASC'
   );
@@ -15,10 +15,10 @@ async function getEstadoOrdenes() {
 }
 
 export default async function ReporteEstadoOrdenes() {
-  // 2. Ejecutar la consulta al cargar la página
+  // aqui ejecutamos la consulta al cargar la página
   const datos = await getEstadoOrdenes();
 
-  // 3. Calcular un KPI simple para mostrar destacado (Total de dinero en juego)
+  // Calcular un KPI simple para mostrar destacado (Total de dinero en juego)
   // Sumamos el valor_total de todas las filas
   const kpiTotalDinero = datos.reduce(
     (acc, row) => acc + Number(row.valor_total), 
@@ -40,7 +40,7 @@ export default async function ReporteEstadoOrdenes() {
         Visión general operativa del flujo de pedidos.
       </p>
 
-      {/* KPI Destacado (Requisito de UI) */}
+      {/* KPI Destacado */}
       <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 w-fit rounded">
         <p className="text-sm text-blue-700 font-bold uppercase">
           Valor Total en Pipeline
@@ -50,7 +50,7 @@ export default async function ReporteEstadoOrdenes() {
         </p>
       </div>
 
-      {/* Tabla de Resultados (Requisito de UI) */}
+      {/* Tabla de Resultados */}
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="w-full text-sm text-left text-gray-700">
           <thead className="text-xs text-white uppercase bg-slate-800">

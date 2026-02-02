@@ -1,16 +1,16 @@
-# ============================================
+
 # Docker Compose - Lab Reportes
 # PostgreSQL + Next.js Dashboard
-# ============================================
+
 
 version: '3.8'
 
 services:
-  # ==========================================
+
   # Servicio de Base de Datos (PostgreSQL)
-  # ==========================================
+
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: lab_reportes_db
     
     # Variables de entorno para PostgreSQL
@@ -29,7 +29,7 @@ services:
       # Se ejecutan en orden alfabético: 01_schema.sql, 02_seed.sql, etc.
       - ./db:/docker-entrypoint-initdb.d
       
-      # Persistencia de datos (opcional, comentado por defecto)
+      # Persistencia de datos 
       # Descomenta la siguiente línea para persistir datos entre reinicios
       # - postgres_data:/var/lib/postgresql/data
     
@@ -44,9 +44,8 @@ services:
     networks:
       - app-network
 
-  # ==========================================
   # Servicio de Dashboard (Next.js)
-  # ==========================================
+
   dashboard:
     build:
       context: ./dashboard
@@ -87,10 +86,3 @@ networks:
   app-network:
     driver: bridge
 
-# ==========================================
-# Volúmenes (opcional)
-# ==========================================
-# Descomenta para habilitar persistencia de datos
-# volumes:
-#   postgres_data:
-#     driver: local

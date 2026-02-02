@@ -1,4 +1,3 @@
-// dashboard/src/app/reports/inventario/page.tsx
 import { query } from '@/lib/db';
 import { z } from 'zod';
 import Link from 'next/link';
@@ -6,7 +5,7 @@ import Link from 'next/link';
 // Forzar renderizado dinámico (no pre-renderizar en build)
 export const dynamic = 'force-dynamic';
 
-// Schema de validación con filtros (REQUISITO: Zod + parametrizado)
+// Schema de validación con filtros donde usamos Zod + parametrizado)
 const FilterSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(5).max(50).default(10),
@@ -18,11 +17,11 @@ export default async function InventarioPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // 1. Validar parámetros con Zod
+  //  parámetros con Zod
   const { page, limit, nivelStock } = FilterSchema.parse(searchParams);
   const offset = (page - 1) * limit;
 
-  // 2. Construir consulta con filtro opcional
+ 
   const whereClause = nivelStock !== 'todos' 
     ? 'WHERE nivel_stock = $1' 
     : '';
@@ -117,7 +116,7 @@ export default async function InventarioPage({
             </select>
           </div>
 
-          {/* Campo oculto para resetear página a 1 cuando se cambian filtros */}
+          {/*pa resetear página a 1 cuando se cambian filtros */}
           <input type="hidden" name="page" value="1" />
 
           <button

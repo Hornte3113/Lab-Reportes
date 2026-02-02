@@ -1,11 +1,9 @@
-// dashboard/src/app/reports/clientes/page.tsx
 import { query } from '@/lib/db';
 import Link from 'next/link';
 
-// Forzar renderizado dinámico (no pre-renderizar en build)
 export const dynamic = 'force-dynamic';
 
-// Interface que coincide EXACTAMENTE con view_clasificacion_clientes
+
 interface ClasificacionCliente {
   usuario_id: number;
   usuario: string;
@@ -24,12 +22,11 @@ export default async function ReporteClientes({
 }: {
   searchParams: { page?: string };
 }) {
-  // 1. Obtener la página actual de la URL (si no existe, es la 1)
+  // para la página actual de la URL y si no es automatico es 1
   const currentPage = Number(searchParams.page) || 1;
   const ITEMS_PER_PAGE = 5;
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
-  // 2. Ejecutar DOS consultas en paralelo (Rendimiento)
   const [clientesRes, totalRes] = await Promise.all([
     query(
       `SELECT * FROM view_clasificacion_clientes 
@@ -194,18 +191,13 @@ export default async function ReporteClientes({
 
       {/* Leyenda de segmentos */}
       <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-sm font-semibold text-gray-700 mb-2">📊 Criterios de Segmentación:</p>
+        <p className="text-sm font-semibold text-gray-700 mb-2">Criterios de Segmentación:</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600">
           <div><span className="font-bold text-purple-700">VIP:</span> &gt;$1,000</div>
           <div><span className="font-bold text-blue-700">Premium:</span> $500-$999</div>
           <div><span className="font-bold text-green-700">Regular:</span> $100-$499</div>
           <div><span className="font-bold text-gray-700">Nuevo:</span> &lt;$100</div>
         </div>
-      </div>
-
-      {/* Nota técnica */}
-      <div className="mt-6 text-xs text-gray-500 italic">
-        * Solo se muestran clientes activos con al menos una compra no cancelada.
       </div>
     </div>
   );

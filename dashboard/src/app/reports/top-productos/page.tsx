@@ -1,12 +1,11 @@
-// dashboard/src/app/reports/top-productos/page.tsx
 import { query } from '@/lib/db';
 import { z } from 'zod';
 import Link from 'next/link';
 
-// Forzar renderizado dinámico (no pre-renderizar en build)
+
 export const dynamic = 'force-dynamic';
 
-// Interfaz que coincide con view_top_productos
+
 interface TopProducto {
   producto_id: number;
   codigo: string;
@@ -21,7 +20,7 @@ interface TopProducto {
   pct_acumulado: number;
 }
 
-// Schema de validación Zod para filtros y paginación (REQUISITO)
+// validación Zod para filtros y paginación 
 const FilterSchema = z.object({
   minVentas: z.coerce.number().min(0).default(0),
   page: z.coerce.number().min(1).default(1),
@@ -33,11 +32,11 @@ export default async function TopProductosPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // 1. Validar parámetros con Zod (SEGURIDAD)
+  // parámetros con Zod (SEGURIDAD)
   const { minVentas, page, limit } = FilterSchema.parse(searchParams);
   const offset = (page - 1) * limit;
 
-  // 2. Consulta parametrizada (SEGURIDAD - NO concatenación de strings)
+
   // Usamos $1, $2, $3 para prevenir SQL injection
   const [productosRes, totalRes] = await Promise.all([
     query(
@@ -57,7 +56,7 @@ export default async function TopProductosPage({
   const totalPages = Math.ceil(Number(totalRes.rows[0].total) / limit);
   const totalProductos = Number(totalRes.rows[0].total);
 
-  // 3. Calcular KPIs
+  // Calcular KPIs
   const kpiTotalVendido = productos.reduce(
     (acc, p) => acc + Number(p.unidades_vendidas), 
     0
@@ -86,7 +85,7 @@ export default async function TopProductosPage({
         Ranking de productos más exitosos con métricas de rendimiento.
       </p>
 
-      {/* Formulario de Filtros (REQUISITO: Validado con Zod) */}
+      {/* Formulario de Filtros con Zod */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
         <form method="GET" action="/reports/top-productos" className="flex flex-wrap gap-4 items-end">
           <div>
@@ -119,7 +118,7 @@ export default async function TopProductosPage({
             </select>
           </div>
 
-          {/* Campo oculto para resetear página a 1 cuando se cambian filtros */}
+
           <input type="hidden" name="page" value="1" />
 
           <button
@@ -163,12 +162,12 @@ export default async function TopProductosPage({
       {top3.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
           <p className="text-sm font-semibold text-yellow-800 mb-2">
-            🥇 Top 3 Productos en esta vista:
+            Top 3 Productos en esta vista:
           </p>
           <div className="flex gap-4 flex-wrap">
             {top3.map((p, idx) => (
               <div key={p.producto_id} className="flex items-center gap-2">
-                <span className="text-2xl">{['🥇', '🥈', '🥉'][idx]}</span>
+                <span className="text-2xl">{['1', '2', '3'][idx]}</span>
                 <div>
                   <p className="font-bold text-gray-800">{p.producto}</p>
                   <p className="text-xs text-gray-600">
@@ -260,7 +259,7 @@ export default async function TopProductosPage({
         </table>
       </div>
 
-      {/* Controles de Paginación (REQUISITO) */}
+      {/* Controles de Paginación */}
       {totalPages > 1 && (
         <div className="flex justify-between items-center bg-gray-100 p-4 rounded-lg">
           <span className="text-sm text-gray-700">
@@ -289,7 +288,7 @@ export default async function TopProductosPage({
 
       {/* Nota técnica */}
       <div className="mt-6 text-xs text-gray-500 italic">
-        * Ranking basado en unidades vendidas. % Acumulado muestra la contribución acumulada al total de ingresos (Análisis de Pareto).
+        Ranking basado en unidades vendidas. % Acumulado muestra la contribución acumulada al total de ingresos (Análisis de Pareto).
       </div>
     </div>
   );
