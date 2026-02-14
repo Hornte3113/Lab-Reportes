@@ -3,22 +3,25 @@ import { clientesService } from '@/services';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ReporteClientes({
-  searchParams,
-}: {
-  searchParams: { page?: string; limit?: string };
+export default async function ReporteClientes(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Validar parámetros con Zod
+ 
+  const searchParams = await props.searchParams;
+
+  // Validar con Zod
   const paginacion = clientesService.PaginacionClientesSchema.parse(searchParams);
   const { page, limit } = paginacion;
 
-  // Obtener datos desde el servicio (backend)
-  const { clientes, totalPages } =
-    await clientesService.getClasificacionClientes(paginacion);
+  // Obtener Datos Paginados + KPIs Globales en paralelo
+  const [datosPaginados, statsGlobales] = await Promise.all([
+    clientesService.getClasificacionClientes(paginacion),
+    clientesService.getClientesStats()
+  ]);
 
-  // Calcular KPIs usando la lógica del servicio
-  const { totalIngresos, clientesVIP } =
-    clientesService.calcularKPIsClientes(clientes);
+  const { clientes, totalPages } = datosPaginados;
+
+  const { totalIngresos, clientesVIP } = statsGlobales;
 
   return (
     <div className="p-8 font-sans">
@@ -35,11 +38,11 @@ export default async function ReporteClientes({
         Segmentación basada en valor monetario, recurrencia y actividad.
       </p>
 
-      {/* KPIs */}
+      {/* KPIs Corregidos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded shadow">
           <p className="text-sm text-purple-700 font-bold uppercase mb-1">
-            Total Gastado (Página Actual)
+            Total Gastado (Histórico)
           </p>
           <p className="text-3xl font-bold text-purple-900">
             ${totalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -48,7 +51,7 @@ export default async function ReporteClientes({
 
         <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded shadow">
           <p className="text-sm text-amber-700 font-bold uppercase mb-1">
-            Clientes VIP en Vista
+            Total Clientes VIP
           </p>
           <p className="text-3xl font-bold text-amber-900">
             {clientesVIP}
@@ -124,11 +127,11 @@ export default async function ReporteClientes({
 
                 {/* Última Compra */}
                 <td className="px-6 py-4 text-right text-gray-600">
-                  {new Date(cliente.ultima_compra).toLocaleDateString('es-MX', {
+                  {cliente.ultima_compra ? new Date(cliente.ultima_compra).toLocaleDateString('es-MX', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric'
-                  })}
+                  }) : 'N/A'}
                 </td>
               </tr>
             ))}
@@ -137,29 +140,31 @@ export default async function ReporteClientes({
       </div>
 
       {/* Controles de Paginación */}
-      <div className="flex justify-between items-center bg-gray-100 p-4 rounded-lg">
-        <span className="text-sm text-gray-700">
-          Página <strong>{page}</strong> de <strong>{totalPages}</strong>
-        </span>
-        <div className="space-x-2">
-          {page > 1 && (
-            <Link
-              href={`/reports/clientes?page=${page - 1}&limit=${limit}`}
-              className="px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
-            >
-              ← Anterior
-            </Link>
-          )}
-          {page < totalPages && (
-            <Link
-              href={`/reports/clientes?page=${page + 1}&limit=${limit}`}
-              className="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 text-sm"
-            >
-              Siguiente →
-            </Link>
-          )}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center bg-gray-100 p-4 rounded-lg">
+            <span className="text-sm text-gray-700">
+            Página <strong>{page}</strong> de <strong>{totalPages}</strong>
+            </span>
+            <div className="space-x-2">
+            {page > 1 && (
+                <Link
+                href={`/reports/clientes?page=${page - 1}&limit=${limit}`}
+                className="px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
+                >
+                ← Anterior
+                </Link>
+            )}
+            {page < totalPages && (
+                <Link
+                href={`/reports/clientes?page=${page + 1}&limit=${limit}`}
+                className="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 text-sm"
+                >
+                Siguiente →
+                </Link>
+            )}
+            </div>
         </div>
-      </div>
+      )}
 
       {/* Leyenda de segmentos */}
       <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">

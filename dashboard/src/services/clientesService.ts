@@ -5,11 +5,10 @@ import { ClasificacionCliente } from '@/lib/definitions';
 
 export const PaginacionClientesSchema = z.object({
   page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(5).max(50).default(5),
+  limit: z.coerce.number().min(5).max(50).default(10), 
 });
 
 export type PaginacionClientes = z.infer<typeof PaginacionClientesSchema>;
-
 
 export interface ClientesPaginados {
   clientes: ClasificacionCliente[];
@@ -18,11 +17,7 @@ export interface ClientesPaginados {
   currentPage: number;
 }
 
-/**
- * Obtiene la clasificación de clientes con paginación
- * @param paginacion - Parámetros de paginación validados
- * @returns Lista paginada de clientes clasificados
- */
+
 export async function getClasificacionClientes(
   paginacion: PaginacionClientes
 ): Promise<ClientesPaginados> {
@@ -56,18 +51,22 @@ export async function getClasificacionClientes(
   }
 }
 
-export function calcularKPIsClientes(clientes: ClasificacionCliente[]) {
-  const totalIngresos = clientes.reduce(
-    (acc, c) => acc + Number(c.gasto_total),
-    0
-  );
+export async function getClientesStats() {
+  try {
+    const res = await query(`
+      SELECT 
+        COALESCE(SUM(gasto_total), 0) as total_ingresos,
+        -- Contamos VIPs usando CASE condicional dentro del COUNT
+        COUNT(CASE WHEN segmento_cliente = 'VIP' THEN 1 END) as vip_count
+      FROM view_clasificacion_clientes
+    `);
 
-  const clientesVIP = clientes.filter(
-    (c) => c.segmento_cliente === 'VIP'
-  ).length;
-
-  return {
-    totalIngresos,
-    clientesVIP,
-  };
+    return {
+      totalIngresos: Number(res.rows[0].total_ingresos),
+      clientesVIP: Number(res.rows[0].vip_count),
+    };
+  } catch (error) {
+    console.error('Error obteniendo stats de clientes:', error);
+    return { totalIngresos: 0, clientesVIP: 0 };
+  }
 }

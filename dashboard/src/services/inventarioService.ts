@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { query } from '@/lib/db';
 import { InventarioRotacion } from '@/lib/definitions';
 
-// --- Esquemas y Tipos ---
 
 export const FiltroInventarioSchema = z.object({
   page: z.coerce.number().min(1).default(1),
@@ -26,7 +25,6 @@ export interface InventarioPaginado {
   currentPage: number;
 }
 
-// --- Funciones de Datos ---
 
 /**
  * Obtiene el reporte de inventario con filtros y paginación
@@ -83,10 +81,7 @@ export async function getInventarioRotacion(
   }
 }
 
-/**
- * NUEVA FUNCIÓN: Obtiene los KPIs globales calculados en Base de Datos.
- * Esto asegura que la suma sea del TOTAL del inventario, no solo de la página actual.
- */
+
 export async function getInventarioStats(filtros: FiltroInventario) {
   try {
     const { nivelStock } = filtros;
