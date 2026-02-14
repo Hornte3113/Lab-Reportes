@@ -4,29 +4,33 @@ import { ventasService } from '@/services';
 export const dynamic = 'force-dynamic';
 
 export default async function ReporteVentas() {
-  // Obtener datos desde el servicio (backend)
-  const datos = await ventasService.getVentasPorCategoria();
+  
+  const [datos, stats] = await Promise.all([
+    ventasService.getVentasPorCategoria(),
+    ventasService.getVentasStats()
+  ]);
 
-  // Calcular KPIs usando la lógica del servicio
-  const { totalIngresos, totalProductos, ticketPromedio, categoriaLider } =
-    ventasService.calcularKPIsVentas(datos);
+
+  const { totalIngresos, totalProductos, ticketPromedio } = stats;
+ 
+  const categoriaLider = datos[0] || null;
 
   return (
     <div className="p-8 font-sans">
-      {/* Navegación */}
+      {/* Navegación - RECUPERADA */}
       <div className="mb-6">
         <Link href="/" className="text-blue-600 hover:underline">
           ← Volver al Dashboard
         </Link>
       </div>
 
-      {/* Encabezado */}
+      {/* Encabezado - RECUPERADO */}
       <h1 className="text-3xl font-bold mb-2">Ventas por Categoría</h1>
       <p className="text-gray-600 mb-8">
         Resumen financiero completo agrupado por tipo de producto.
       </p>
 
-      {/* KPIs Destacados */}
+      {/* KPIs Destacados (Con fórmulas corregidas) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {/* KPI 1: Ingresos Totales */}
         <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded shadow">
@@ -48,18 +52,19 @@ export default async function ReporteVentas() {
           </p>
         </div>
 
-        {/* KPI 3: Ticket Promedio */}
+        {/* KPI 3: Ticket Promedio REAL */}
         <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded shadow">
           <p className="text-sm text-purple-700 font-bold uppercase mb-1">
-            Ticket Promedio Global
+            Ticket Promedio Real
           </p>
           <p className="text-3xl font-bold text-purple-900">
-            ${ticketPromedio.toFixed(2)}
+            ${ticketPromedio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
+          <p className="text-xs text-purple-600 mt-1">Global (Ingresos / Órdenes)</p>
         </div>
       </div>
 
-      {/* Insight adicional */}
+      {/* Insight adicional (Categoría Líder) */}
       {categoriaLider && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-8">
           <p className="text-sm font-semibold text-amber-800 mb-1">
@@ -126,9 +131,9 @@ export default async function ReporteVentas() {
         </table>
       </div>
 
-      {/* Nota técnica para vernos mñas profesionales*/}
+      {/* Nota técnica */}
       <div className="mt-6 text-xs text-gray-500 italic">
-    Los datos excluyen órdenes canceladas. 
+        Los datos excluyen órdenes canceladas. 
         Participación calculada sobre ingresos totales del período.
       </div>
     </div>

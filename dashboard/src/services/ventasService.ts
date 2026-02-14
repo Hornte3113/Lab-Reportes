@@ -1,7 +1,6 @@
 import { query } from '@/lib/db';
 import { VentaCategoria } from '@/lib/definitions';
 
-
 export async function getVentasPorCategoria(): Promise<VentaCategoria[]> {
   try {
     const result = await query(
@@ -14,29 +13,28 @@ export async function getVentasPorCategoria(): Promise<VentaCategoria[]> {
   }
 }
 
+// 2. NUEVO: Calcular KPIs matemáticamente correctos desde SQL
+export async function getVentasStats() {
+  try {
+    const result = await query(`
+      SELECT 
+        SUM(ingresos_totales) as ingresos_globales,
+        SUM(productos_vendidos) as productos_globales,
+        SUM(total_ordenes) as ordenes_totales
+      FROM view_ventas_por_categoria
+    `);
 
-export function calcularKPIsVentas(datos: VentaCategoria[]) {
-  const totalIngresos = datos.reduce(
-    (acc, row) => acc + Number(row.ingresos_totales),
-    0
-  );
+    const row = result.rows[0];
+    const ingresos = Number(row.ingresos_globales) || 0;
+    const ordenes = Number(row.ordenes_totales) || 1; 
 
-  const totalProductos = datos.reduce(
-    (acc, row) => acc + Number(row.productos_vendidos),
-    0
-  );
-
-  const ticketPromedio = datos.reduce(
-    (acc, row) => acc + Number(row.ticket_promedio),
-    0
-  ) / (datos.length || 1);
-
-  const categoriaLider = datos[0] || null;
-
-  return {
-    totalIngresos,
-    totalProductos,
-    ticketPromedio,
-    categoriaLider,
-  };
+    return {
+      totalIngresos: ingresos,
+      totalProductos: Number(row.productos_globales),
+      ticketPromedio: ingresos / ordenes, 
+    };
+  } catch (error) {
+    console.error('Error stats ventas:', error);
+    return { totalIngresos: 0, totalProductos: 0, ticketPromedio: 0 };
+  }
 }

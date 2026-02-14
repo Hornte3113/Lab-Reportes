@@ -1,8 +1,3 @@
-/**
- * Servicio de Inventario
- * Maneja todas las operaciones relacionadas con el reporte de rotación de inventario
- */
-
 import { z } from 'zod';
 import { query } from '@/lib/db';
 import { InventarioRotacion } from '@/lib/definitions';
@@ -26,10 +21,7 @@ export interface InventarioPaginado {
 }
 
 
-/**
- * Obtiene el reporte de inventario con filtros y paginación
- * Retorna solo las filas de la página actual.
- */
+
 export async function getInventarioRotacion(
   filtros: FiltroInventario
 ): Promise<InventarioPaginado> {
@@ -37,20 +29,17 @@ export async function getInventarioRotacion(
     const { page, limit, nivelStock } = filtros;
     const offset = (page - 1) * limit;
 
-    // Construcción dinámica del WHERE
+ 
     const whereClause = nivelStock !== 'todos' ? 'WHERE nivel_stock = $1' : '';
-    
-    // Parámetros dinámicos según si hay filtro o no
+
     const params = nivelStock !== 'todos' 
       ? [nivelStock, limit, offset] 
       : [limit, offset];
 
-    // Ajuste de los índices ($1, $2...) para LIMIT y OFFSET
     const limitOffsetString = nivelStock !== 'todos' 
       ? 'LIMIT $2 OFFSET $3' 
       : 'LIMIT $1 OFFSET $2';
 
-    // Ejecutar queries en paralelo (Datos + Conteo Total para paginación)
     const [inventarioRes, totalRes] = await Promise.all([
       query(
         `SELECT * FROM view_inventario_rotacion
@@ -88,7 +77,6 @@ export async function getInventarioStats(filtros: FiltroInventario) {
     const whereClause = nivelStock !== 'todos' ? 'WHERE nivel_stock = $1' : '';
     const params = nivelStock !== 'todos' ? [nivelStock] : [];
 
-    // Hacemos SUM directamente en SQL sobre toda la vista filtrada
     const res = await query(
       `SELECT 
          COALESCE(SUM(valor_inventario), 0) as valor_total,

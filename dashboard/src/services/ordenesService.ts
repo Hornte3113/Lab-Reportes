@@ -1,7 +1,5 @@
-
 import { query } from '@/lib/db';
 import { EstadoOrden } from '@/lib/definitions';
-
 
 export async function getEstadoOrdenes(): Promise<EstadoOrden[]> {
   try {
@@ -16,23 +14,20 @@ export async function getEstadoOrdenes(): Promise<EstadoOrden[]> {
 }
 
 export function calcularKPIsOrdenes(datos: EstadoOrden[]) {
-  const totalDinero = datos.reduce(
-    (acc, row) => acc + Number(row.valor_total),
-    0
-  );
+  
+  const pipelineActivo = datos
+    .filter(d => ['pendiente', 'pagado', 'enviado'].includes(d.status))
+    .reduce((acc, row) => acc + Number(row.valor_total), 0);
 
-  const totalOrdenes = datos.reduce(
-    (acc, row) => acc + Number(row.cantidad_ordenes),
-    0
-  );
+  const ventasCerradas = datos
+    .find(d => d.status === 'entregado')?.valor_total || 0;
 
-  const ordenesActivas = datos
-    .filter((row) => row.status !== 'entregado' && row.status !== 'cancelado')
-    .reduce((acc, row) => acc + Number(row.cantidad_ordenes), 0);
+  const dineroCancelado = datos
+    .find(d => d.status === 'cancelado')?.valor_total || 0;
 
   return {
-    totalDinero,
-    totalOrdenes,
-    ordenesActivas,
+    pipelineActivo,
+    ventasCerradas: Number(ventasCerradas),
+    dineroCancelado: Number(dineroCancelado)
   };
 }
