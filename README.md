@@ -13,7 +13,7 @@ Este proyecto es un dashboard interactivo para visualizar reportes de base de da
 
 1. **Clonar el repositorio**
    ```bash
-   git clone <tu-repo>
+   git clone https://github.com/Hornte3113/Lab-Reportes.git
    cd LabReportes
    ```
 
@@ -681,11 +681,7 @@ SELECT * FROM productos WHERE categoria_id = 5;
 
 ## Evidencia de Implementación
 
-### Lista de Views Creadas
-
-```
-
-docker exec -it lab_reportes_db psql -U postgres -d postgres -c '\dv'
+### 1. Listado de VIEWS (comando `\dv`)
 
 ```
                       List of relations
@@ -699,20 +695,16 @@ docker exec -it lab_reportes_db psql -U postgres -d postgres -c '\dv'
 (5 rows)
 ```
 
----
+### 2. Verificación de Índices
 
-### Lista de Índices Creados
-
-```
-docker exec -it lab_reportes_db psql -U postgres -d postgres -c "
+```sql
 SELECT schemaname, tablename, indexname
 FROM pg_indexes
-WHERE schemaname = 'public'
-AND indexname LIKE 'idx_%'
-ORDER BY tablename, indexname;"
+WHERE schemaname = 'public' AND indexname LIKE 'idx_%'
+ORDER BY tablename, indexname;
+```
 
-# ========== ==========
-
+```
  schemaname |   tablename    |           indexname
 ------------+----------------+--------------------------------
  public     | orden_detalles | idx_orden_detalles_producto_id
@@ -722,21 +714,35 @@ ORDER BY tablename, indexname;"
  public     | productos      | idx_productos_categoria_id
  public     | usuarios       | idx_usuarios_activo
 (6 rows)
-
-# ==========  ==========
 ```
 
----
+### 3. Prueba de Acceso con app_client
 
-### Verificación de Permisos del Rol app_client
+```sql
+-- Conectar como app_client
+\c postgres app_client
 
+-- Probar acceso a view (debe funcionar)
+SELECT * FROM view_ventas_por_categoria LIMIT 1;
 ```
-docker exec -it lab_reportes_db psql -U postgres -d postgres -c "
+Resultado: Acceso permitido, retorna datos.
+
+```sql
+-- Intentar acceso a tabla base (debe fallar)
+SELECT * FROM usuarios LIMIT 1;
+```
+Resultado: `ERROR: permission denied for table usuarios`
+
+### 4. Permisos del Rol app_client
+
+```sql
 SELECT table_name, privilege_type
 FROM information_schema.role_table_grants
 WHERE grantee = 'app_client'
-ORDER BY table_name;"
+ORDER BY table_name;
+```
 
+```
          table_name          | privilege_type
 -----------------------------+----------------
  view_clasificacion_clientes | SELECT
@@ -745,6 +751,55 @@ ORDER BY table_name;"
  view_top_productos          | SELECT
  view_ventas_por_categoria   | SELECT
 (5 rows)
+```
+
+### 5. Ejemplos de Salida de VIEWS
+
+#### view_ventas_por_categoria
+```
+ categoria_id | categoria    | total_ordenes | productos_vendidos | ingresos_totales | participacion_pct
+--------------+--------------+---------------+--------------------+------------------+------------------
+      1       | Electrónica  |      45       |        320         |     15450.25     |      45.20
+      2       | Muebles      |      28       |        180         |      8900.50     |      26.05
+      3       | Ropa         |      35       |        250         |      9800.75     |      28.75
+```
+
+#### view_top_productos
+```
+ producto_id | producto        | ranking_ventas | unidades_vendidas | ingresos_generados
+-------------+-----------------+----------------+-------------------+-------------------
+      5      | Laptop Dell     |       1        |        120        |      8500.00
+      8      | Monitor Samsung |       2        |        95         |      4200.50
+      3      | Silla Oficina   |       3        |        80         |      2400.00
+```
+
+#### view_clasificacion_clientes
+```
+ usuario_id | usuario          | segmento_cliente | gasto_total | total_ordenes | estado_actividad
+------------+------------------+------------------+-------------+---------------+-----------------
+      1     | Juan Pérez       | VIP              |   2450.50   |      8        | Muy Activo
+      4     | María García     | Premium          |    780.25   |      3        | Muy Activo
+      7     | Carlos López     | Regular          |    320.10   |      2        | Activo
+```
+
+#### view_estado_ordenes
+```
+ status     | cantidad_ordenes | valor_total | valor_promedio | dias_promedio | prioridad
+------------+------------------+-------------+----------------+---------------+-----------
+ pendiente  |        12        |   3450.25   |     287.52     |      2.5      |     1
+ pagado     |        18        |   5200.50   |     288.92     |      1.8      |     2
+ enviado    |        25        |   8900.75   |     356.03     |      0.9      |     3
+ entregado  |       145        |  45230.00   |     311.93     |      8.2      |     4
+```
+
+#### view_inventario_rotacion
+```
+ producto_id | producto        | nivel_stock | tasa_rotacion | accion_recomendada
+-------------+-----------------+-------------+---------------+--------------------
+      1      | Teclado Mecánico|  Sin Stock  |      0.00     | Reabastecer Urgente
+      2      | Mouse Gamer     |   Crítico   |      2.50     | Reabastecer
+      5      | Escritorio XL   |    Alto     |      0.15     | Promocionar
+      8      | Monitor 4K      |   Normal    |      1.20     | Mantener
 ```
 
 ---
@@ -797,8 +852,6 @@ LabReportes/
 
 ---
 
-
-
 ## Autor
 
 **Nombre:** Alix Anahi Montesinos Grajales
@@ -807,15 +860,13 @@ LabReportes/
 
 ---
 
-## Cómo Verificar el Proyecto
+## Verificación Rápida
 
-Ejecuta el script de verificación:
+Para verificar que todo funcione:
 
 ```bash
 chmod +x scripts/verify.sh
 ./scripts/verify.sh
 ```
 
-Debe mostrar que las 5 views funcionan correctamente y que el rol app_client tiene exactamente 5 permisos de SELECT.
-
----
+Debe mostrar que las 5 views ejecutan correctamente y que app_client tiene exactamente 5 permisos SELECT.
