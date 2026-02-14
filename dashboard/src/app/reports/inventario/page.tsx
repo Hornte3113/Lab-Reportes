@@ -3,24 +3,29 @@ import { inventarioService } from '@/services';
 
 export const dynamic = 'force-dynamic';
 
-export default async function InventarioPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
+// 1. Cambiamos la definición para recibir searchParams como Promesa
+export default async function InventarioPage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Validar parámetros con Zod (SEGURIDAD)
+  // 2. Esperamos a que se resuelva la promesa de los parámetros
+  const searchParams = await props.searchParams;
+
+  // 3. Validamos con Zod (ahora sí recibe los datos reales)
   const filtros = inventarioService.FiltroInventarioSchema.parse(searchParams);
   const { page, limit, nivelStock } = filtros;
 
-  // Obtener datos desde el servicio (backend)
-  const { productos, totalProductos, totalPages } =
-    await inventarioService.getInventarioRotacion(filtros);
+  // 4. Hacemos las dos consultas en paralelo (Paginación + KPIs Globales)
+  const [datosPaginados, statsGlobales] = await Promise.all([
+    inventarioService.getInventarioRotacion(filtros), // Datos de la tabla (página actual)
+    inventarioService.getInventarioStats(filtros),    // KPIs de TODO el inventario
+  ]);
 
-  // Calcular KPIs usando la lógica del servicio
-  const { valorTotal, stockTotal, productosCriticos } =
-    inventarioService.calcularKPIsInventario(productos);
+  // 5. Extraemos los datos para usar en la vista
+  const { productos, totalProductos, totalPages } = datosPaginados;
+  const { valorTotal, stockTotal, productosCriticos } = statsGlobales;
 
   return (
+    // ... aquí sigue tu JSX igual que antes ...
     <div className="p-8 font-sans">
       {/* Navegación */}
       <div className="mb-6">

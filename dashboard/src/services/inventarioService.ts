@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { query } from '@/lib/db';
 import { InventarioRotacion } from '@/lib/definitions';
 
+// --- Esquemas y Tipos ---
 
 export const FiltroInventarioSchema = z.object({
   page: z.coerce.number().min(1).default(1),
@@ -18,7 +19,6 @@ export const FiltroInventarioSchema = z.object({
 
 export type FiltroInventario = z.infer<typeof FiltroInventarioSchema>;
 
-
 export interface InventarioPaginado {
   productos: InventarioRotacion[];
   totalProductos: number;
@@ -26,10 +26,11 @@ export interface InventarioPaginado {
   currentPage: number;
 }
 
+// --- Funciones de Datos ---
+
 /**
  * Obtiene el reporte de inventario con filtros y paginación
- * @param filtros - Filtros validados con Zod
- * @returns Lista paginada de productos del inventario
+ * Retorna solo las filas de la página actual.
  */
 export async function getInventarioRotacion(
   filtros: FiltroInventario
@@ -38,19 +39,26 @@ export async function getInventarioRotacion(
     const { page, limit, nivelStock } = filtros;
     const offset = (page - 1) * limit;
 
+    // Construcción dinámica del WHERE
     const whereClause = nivelStock !== 'todos' ? 'WHERE nivel_stock = $1' : '';
+    
+    // Parámetros dinámicos según si hay filtro o no
+    const params = nivelStock !== 'todos' 
+      ? [nivelStock, limit, offset] 
+      : [limit, offset];
 
-    const params = nivelStock !== 'todos' ? [nivelStock, limit, offset] : [limit, offset];
+    // Ajuste de los índices ($1, $2...) para LIMIT y OFFSET
+    const limitOffsetString = nivelStock !== 'todos' 
+      ? 'LIMIT $2 OFFSET $3' 
+      : 'LIMIT $1 OFFSET $2';
 
-    const limitOffsetParams =
-      nivelStock !== 'todos' ? '$2 OFFSET $3' : '$1 OFFSET $2';
-
+    // Ejecutar queries en paralelo (Datos + Conteo Total para paginación)
     const [inventarioRes, totalRes] = await Promise.all([
       query(
         `SELECT * FROM view_inventario_rotacion
          ${whereClause}
          ORDER BY tasa_rotacion DESC
-         LIMIT ${limitOffsetParams}`,
+         ${limitOffsetString}`,
         params
       ),
       query(
@@ -75,24 +83,35 @@ export async function getInventarioRotacion(
   }
 }
 
-export function calcularKPIsInventario(productos: InventarioRotacion[]) {
-  const valorTotal = productos.reduce(
-    (acc, p) => acc + Number(p.valor_inventario),
-    0
-  );
+/**
+ * NUEVA FUNCIÓN: Obtiene los KPIs globales calculados en Base de Datos.
+ * Esto asegura que la suma sea del TOTAL del inventario, no solo de la página actual.
+ */
+export async function getInventarioStats(filtros: FiltroInventario) {
+  try {
+    const { nivelStock } = filtros;
+    const whereClause = nivelStock !== 'todos' ? 'WHERE nivel_stock = $1' : '';
+    const params = nivelStock !== 'todos' ? [nivelStock] : [];
 
-  const stockTotal = productos.reduce(
-    (acc, p) => acc + Number(p.stock_actual),
-    0
-  );
+    // Hacemos SUM directamente en SQL sobre toda la vista filtrada
+    const res = await query(
+      `SELECT 
+         COALESCE(SUM(valor_inventario), 0) as valor_total,
+         COALESCE(SUM(stock_actual), 0) as stock_total,
+         -- Ejemplo de métrica extra: conteo de productos críticos
+         COUNT(CASE WHEN nivel_stock IN ('Sin Stock', 'Crítico') THEN 1 END) as productos_criticos
+       FROM view_inventario_rotacion
+       ${whereClause}`,
+      params
+    );
 
-  const productosCriticos = productos.filter(
-    (p) => p.nivel_stock === 'Sin Stock' || p.nivel_stock === 'Crítico'
-  ).length;
-
-  return {
-    valorTotal,
-    stockTotal,
-    productosCriticos,
-  };
+    return {
+      valorTotal: Number(res.rows[0].valor_total),
+      stockTotal: Number(res.rows[0].stock_total),
+      productosCriticos: Number(res.rows[0].productos_criticos),
+    };
+  } catch (error) {
+    console.error('Error obteniendo stats de inventario:', error);
+    return { valorTotal: 0, stockTotal: 0, productosCriticos: 0 };
+  }
 }
