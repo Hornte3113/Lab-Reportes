@@ -397,7 +397,7 @@ LIMIT 20;
 
 # ==========  ==========
 ```
-
+Nota: PostgreSQL decidió usar Seq Scan porque la tabla tiene pocos registros (seed data), pero el planificador usaría el índice con mayor volumen de datos.
 
 ### Índice 3: `idx_ordenes_created_at`
 
@@ -419,34 +419,34 @@ Los reportes requieren cálculos temporales frecuentes:
 
 **Evidencia de Performance (EXPLAIN ANALYZE):**
 
-```
+```sql
+SET enable_seqscan = OFF;
 
 EXPLAIN (ANALYZE, BUFFERS)
-SELECT status,
-       AVG(EXTRACT(DAY FROM (NOW() - created_at))) as dias_promedio
+SELECT id, usuario_id, status, created_at
 FROM ordenes
-GROUP BY status;
+ORDER BY created_at DESC
+LIMIT 20;
 
-# ========== ==========
- HashAggregate  (cost=1.15..1.22 rows=6 width=90) (actual time=0.507..0.511 rows=4 loops=1)
-   Group Key: status
-   Batches: 1  Memory Usage: 24kB
-   Buffers: shared hit=1
-   ->  Seq Scan on ordenes  (cost=0.00..1.06 rows=6 width=66) (actual time=0.019..0.022 rows=6 loops=1)
-         Buffers: shared hit=1
- Planning:
-   Buffers: shared hit=2
- Planning Time: 0.255 ms
- Execution Time: 1.124 ms
-
-
-# ==========  ==========
+SET enable_seqscan = ON;
 ```
 
-**Análisis Esperado:**
--  Uso de índice para cálculos temporales
--  Beneficio crece con el tamaño de la tabla
--  Bonus: Acelera `ORDER BY created_at DESC` sin costo adicional
+**Resultado:**
+```
+ Limit  (cost=0.13..12.22 rows=6 width=74) (actual time=0.450..0.460 rows=6 loops=1)
+   Buffers: shared hit=2 read=1
+   ->  Index Scan Backward using idx_ordenes_created_at on ordenes  (cost=0.13..12.22 rows=6 width=74) (actual time=0.448..0.455 rows=6 loops=1)
+         Buffers: shared hit=2 read=1
+ Planning Time: 0.112 ms
+ Execution Time: 0.615 ms
+(6 rows)
+```
+
+**Análisis:**
+-  **Index Scan Backward** confirma el uso del índice `idx_ordenes_created_at`
+- El índice permite ordenamiento eficiente sin escaneo completo de la tabla
+- Tiempo de ejecución: **0.615 ms** 
+- Beneficio crece significativamente con mayor volumen de datos
 
 ---
 
