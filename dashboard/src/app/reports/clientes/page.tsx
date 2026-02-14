@@ -1,52 +1,24 @@
-import { query } from '@/lib/db';
 import Link from 'next/link';
+import { clientesService } from '@/services';
 
 export const dynamic = 'force-dynamic';
-
-
-interface ClasificacionCliente {
-  usuario_id: number;
-  usuario: string;
-  email: string;
-  total_ordenes: number;
-  gasto_total: number;
-  gasto_promedio: number;
-  items_comprados: number;
-  segmento_cliente: string; // 'VIP', 'Premium', 'Regular', 'Nuevo'
-  estado_actividad: string; // 'Muy Activo', 'Activo', 'Ocasional', 'Sin Compras'
-  ultima_compra: Date;
-}
 
 export default async function ReporteClientes({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: { page?: string; limit?: string };
 }) {
-  // para la página actual de la URL y si no es automatico es 1
-  const currentPage = Number(searchParams.page) || 1;
-  const ITEMS_PER_PAGE = 5;
-  const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+  // Validar parámetros con Zod
+  const paginacion = clientesService.PaginacionClientesSchema.parse(searchParams);
+  const { page, limit } = paginacion;
 
-  const [clientesRes, totalRes] = await Promise.all([
-    query(
-      `SELECT * FROM view_clasificacion_clientes 
-       ORDER BY gasto_total DESC 
-       LIMIT $1 OFFSET $2`,
-      [ITEMS_PER_PAGE, offset]
-    ),
-    query('SELECT COUNT(*) as total FROM view_clasificacion_clientes')
-  ]);
+  // Obtener datos desde el servicio (backend)
+  const { clientes, totalPages } =
+    await clientesService.getClasificacionClientes(paginacion);
 
-  const clientes = clientesRes.rows as ClasificacionCliente[];
-  const totalPages = Math.ceil(Number(totalRes.rows[0].total) / ITEMS_PER_PAGE);
-
-  // 3. Calcular KPIs
-  const kpiTotalIngresos = clientes.reduce(
-    (acc, c) => acc + Number(c.gasto_total), 
-    0
-  );
-
-  const kpiClientesVIP = clientes.filter(c => c.segmento_cliente === 'VIP').length;
+  // Calcular KPIs usando la lógica del servicio
+  const { totalIngresos, clientesVIP } =
+    clientesService.calcularKPIsClientes(clientes);
 
   return (
     <div className="p-8 font-sans">
@@ -70,7 +42,7 @@ export default async function ReporteClientes({
             Total Gastado (Página Actual)
           </p>
           <p className="text-3xl font-bold text-purple-900">
-            ${kpiTotalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${totalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
         </div>
 
@@ -79,7 +51,7 @@ export default async function ReporteClientes({
             Clientes VIP en Vista
           </p>
           <p className="text-3xl font-bold text-amber-900">
-            {kpiClientesVIP}
+            {clientesVIP}
           </p>
         </div>
       </div>
@@ -167,20 +139,20 @@ export default async function ReporteClientes({
       {/* Controles de Paginación */}
       <div className="flex justify-between items-center bg-gray-100 p-4 rounded-lg">
         <span className="text-sm text-gray-700">
-          Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+          Página <strong>{page}</strong> de <strong>{totalPages}</strong>
         </span>
         <div className="space-x-2">
-          {currentPage > 1 && (
-            <Link 
-              href={`/reports/clientes?page=${currentPage - 1}`}
+          {page > 1 && (
+            <Link
+              href={`/reports/clientes?page=${page - 1}&limit=${limit}`}
               className="px-4 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm"
             >
               ← Anterior
             </Link>
           )}
-          {currentPage < totalPages && (
-            <Link 
-              href={`/reports/clientes?page=${currentPage + 1}`}
+          {page < totalPages && (
+            <Link
+              href={`/reports/clientes?page=${page + 1}&limit=${limit}`}
               className="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 text-sm"
             >
               Siguiente →

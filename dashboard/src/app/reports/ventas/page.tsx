@@ -1,48 +1,15 @@
-import { query } from '@/lib/db';
 import Link from 'next/link';
+import { ventasService } from '@/services';
 
 export const dynamic = 'force-dynamic';
 
-interface VentaCategoria {
-  categoria_id: number;
-  categoria: string;
-  total_ordenes: number;
-  productos_vendidos: number;
-  ingresos_totales: number;
-  ticket_promedio: number;
-  participacion_pct: number;
-}
-
-//Función para obtener datos
-async function getVentasPorCategoria() {
-  const result = await query(
-    'SELECT * FROM view_ventas_por_categoria ORDER BY ingresos_totales DESC'
-  );
-  return result.rows as VentaCategoria[];
-}
-
 export default async function ReporteVentas() {
-  //jecutar consulta al cargar
-  const datos = await getVentasPorCategoria();
+  // Obtener datos desde el servicio (backend)
+  const datos = await ventasService.getVentasPorCategoria();
 
-  // Calcular KPIs destacados
-  const kpiTotalIngresos = datos.reduce(
-    (acc, row) => acc + Number(row.ingresos_totales), 
-    0
-  );
-  
-  const kpiTotalProductos = datos.reduce(
-    (acc, row) => acc + Number(row.productos_vendidos), 
-    0
-  );
-
-  const kpiTicketPromedio = datos.reduce(
-    (acc, row) => acc + Number(row.ticket_promedio), 
-    0
-  ) / datos.length;
-
-  // Identificar la categoría más vendida
-  const categoriaTop = datos[0]; // Ya viene ordenado DESC
+  // Calcular KPIs usando la lógica del servicio
+  const { totalIngresos, totalProductos, ticketPromedio, categoriaLider } =
+    ventasService.calcularKPIsVentas(datos);
 
   return (
     <div className="p-8 font-sans">
@@ -67,7 +34,7 @@ export default async function ReporteVentas() {
             Ingresos Totales
           </p>
           <p className="text-3xl font-bold text-green-900">
-            ${kpiTotalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${totalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
         </div>
 
@@ -77,7 +44,7 @@ export default async function ReporteVentas() {
             Unidades Vendidas
           </p>
           <p className="text-3xl font-bold text-blue-900">
-            {kpiTotalProductos.toLocaleString('en-US')}
+            {totalProductos.toLocaleString('en-US')}
           </p>
         </div>
 
@@ -87,21 +54,21 @@ export default async function ReporteVentas() {
             Ticket Promedio Global
           </p>
           <p className="text-3xl font-bold text-purple-900">
-            ${kpiTicketPromedio.toFixed(2)}
+            ${ticketPromedio.toFixed(2)}
           </p>
         </div>
       </div>
 
       {/* Insight adicional */}
-      {categoriaTop && (
+      {categoriaLider && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-8">
           <p className="text-sm font-semibold text-amber-800 mb-1">
             Categoría Líder
           </p>
           <p className="text-gray-700">
-            <span className="font-bold">{categoriaTop.categoria}</span> domina con{' '}
-            <span className="font-bold">{categoriaTop.participacion_pct}%</span> del mercado 
-            (${Number(categoriaTop.ingresos_totales).toLocaleString('en-US', { minimumFractionDigits: 2 })}).
+            <span className="font-bold">{categoriaLider.categoria}</span> domina con{' '}
+            <span className="font-bold">{categoriaLider.participacion_pct}%</span> del mercado
+            (${Number(categoriaLider.ingresos_totales).toLocaleString('en-US', { minimumFractionDigits: 2 })}).
           </p>
         </div>
       )}

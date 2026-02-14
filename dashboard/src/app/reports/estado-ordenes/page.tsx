@@ -1,29 +1,14 @@
-import { query } from '@/lib/db';
-import { EstadoOrden } from '@/lib/definitions';
 import Link from 'next/link';
+import { ordenesService } from '@/services';
 
-// Forzar renderizado dinámico (no pre-renderizar en build) para que agarre el comando
 export const dynamic = 'force-dynamic';
 
-// Función para obtener datos 
-async function getEstadoOrdenes() {
-  
-  const result = await query(
-    'SELECT * FROM view_estado_ordenes ORDER BY prioridad ASC'
-  );
-  return result.rows as EstadoOrden[];
-}
-
 export default async function ReporteEstadoOrdenes() {
-  // aqui ejecutamos la consulta al cargar la página
-  const datos = await getEstadoOrdenes();
+  // Obtener datos desde el servicio (backend)
+  const datos = await ordenesService.getEstadoOrdenes();
 
-  // Calcular un KPI simple para mostrar destacado (Total de dinero en juego)
-  // Sumamos el valor_total de todas las filas
-  const kpiTotalDinero = datos.reduce(
-    (acc, row) => acc + Number(row.valor_total), 
-    0
-  );
+  // Calcular KPIs usando la lógica del servicio
+  const { totalDinero } = ordenesService.calcularKPIsOrdenes(datos);
 
   return (
     <div className="p-8 font-sans">
@@ -46,7 +31,7 @@ export default async function ReporteEstadoOrdenes() {
           Valor Total en Pipeline
         </p>
         <p className="text-3xl font-bold text-blue-900">
-          ${kpiTotalDinero.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          ${totalDinero.toLocaleString('en-US', { minimumFractionDigits: 2 })}
         </p>
       </div>
 

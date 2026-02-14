@@ -1,68 +1,24 @@
-import { query } from '@/lib/db';
-import { z } from 'zod';
 import Link from 'next/link';
+import { inventarioService } from '@/services';
 
-// Forzar renderizado dinámico (no pre-renderizar en build)
 export const dynamic = 'force-dynamic';
-
-// Schema de validación con filtros donde usamos Zod + parametrizado)
-const FilterSchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(5).max(50).default(10),
-  nivelStock: z.enum(['todos', 'Sin Stock', 'Crítico', 'Bajo', 'Normal', 'Alto']).default('todos'),
-});
 
 export default async function InventarioPage({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  //  parámetros con Zod
-  const { page, limit, nivelStock } = FilterSchema.parse(searchParams);
-  const offset = (page - 1) * limit;
+  // Validar parámetros con Zod (SEGURIDAD)
+  const filtros = inventarioService.FiltroInventarioSchema.parse(searchParams);
+  const { page, limit, nivelStock } = filtros;
 
- 
-  const whereClause = nivelStock !== 'todos' 
-    ? 'WHERE nivel_stock = $1' 
-    : '';
-  
-  const params = nivelStock !== 'todos' 
-    ? [nivelStock, limit, offset]
-    : [limit, offset];
+  // Obtener datos desde el servicio (backend)
+  const { productos, totalProductos, totalPages } =
+    await inventarioService.getInventarioRotacion(filtros);
 
-  const limitOffsetParams = nivelStock !== 'todos'
-    ? '$2 OFFSET $3'
-    : '$1 OFFSET $2';
-
-  // 3. Ejecutar consultas en paralelo
-  const [inventarioRes, totalRes] = await Promise.all([
-    query(
-      `SELECT * FROM view_inventario_rotacion 
-       ${whereClause}
-       ORDER BY tasa_rotacion DESC 
-       LIMIT ${limitOffsetParams}`,
-      params
-    ),
-    query(
-      `SELECT COUNT(*) as total FROM view_inventario_rotacion ${whereClause}`,
-      nivelStock !== 'todos' ? [nivelStock] : []
-    )
-  ]);
-
-  const productos = inventarioRes.rows;
-  const totalPages = Math.ceil(Number(totalRes.rows[0].total) / limit);
-  const totalProductos = Number(totalRes.rows[0].total);
-
-  // 4. Calcular KPIs
-  const kpiValorTotal = productos.reduce(
-    (acc: number, p: any) => acc + Number(p.valor_inventario), 
-    0
-  );
-
-  const kpiStockTotal = productos.reduce(
-    (acc: number, p: any) => acc + Number(p.stock_actual), 
-    0
-  );
+  // Calcular KPIs usando la lógica del servicio
+  const { valorTotal, stockTotal, productosCriticos } =
+    inventarioService.calcularKPIsInventario(productos);
 
   return (
     <div className="p-8 font-sans">
@@ -142,7 +98,7 @@ export default async function InventarioPage({
             Valor Total en Inventario
           </p>
           <p className="text-3xl font-bold text-emerald-900">
-            ${kpiValorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${valorTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
         </div>
 
@@ -151,7 +107,7 @@ export default async function InventarioPage({
             Total Unidades en Stock
           </p>
           <p className="text-3xl font-bold text-blue-900">
-            {kpiStockTotal.toLocaleString('en-US')}
+            {stockTotal.toLocaleString('en-US')}
           </p>
         </div>
       </div>

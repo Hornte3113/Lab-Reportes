@@ -1,74 +1,24 @@
-import { query } from '@/lib/db';
-import { z } from 'zod';
 import Link from 'next/link';
-
+import { productosService } from '@/services';
 
 export const dynamic = 'force-dynamic';
-
-
-interface TopProducto {
-  producto_id: number;
-  codigo: string;
-  producto: string;
-  unidades_vendidas: number;
-  ingresos_generados: number;
-  ordenes_incluido: number;
-  precio_actual: number;
-  stock_actual: number;
-  ranking_ventas: number;
-  ranking_ingresos: number;
-  pct_acumulado: number;
-}
-
-// validación Zod para filtros y paginación 
-const FilterSchema = z.object({
-  minVentas: z.coerce.number().min(0).default(0),
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(5).max(50).default(10),
-});
 
 export default async function TopProductosPage({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  // parámetros con Zod (SEGURIDAD)
-  const { minVentas, page, limit } = FilterSchema.parse(searchParams);
-  const offset = (page - 1) * limit;
+  // Validar parámetros con Zod (SEGURIDAD)
+  const filtros = productosService.FiltroProductosSchema.parse(searchParams);
+  const { minVentas, page, limit } = filtros;
 
+  // Obtener datos desde el servicio (backend)
+  const { productos, totalProductos, totalPages } =
+    await productosService.getTopProductos(filtros);
 
-  // Usamos $1, $2, $3 para prevenir SQL injection
-  const [productosRes, totalRes] = await Promise.all([
-    query(
-      `SELECT * FROM view_top_productos 
-       WHERE unidades_vendidas >= $1 
-       ORDER BY ranking_ventas ASC 
-       LIMIT $2 OFFSET $3`,
-      [minVentas, limit, offset]
-    ),
-    query(
-      `SELECT COUNT(*) as total FROM view_top_productos WHERE unidades_vendidas >= $1`,
-      [minVentas]
-    )
-  ]);
-
-  const productos = productosRes.rows as TopProducto[];
-  const totalPages = Math.ceil(Number(totalRes.rows[0].total) / limit);
-  const totalProductos = Number(totalRes.rows[0].total);
-
-  // Calcular KPIs
-  const kpiTotalVendido = productos.reduce(
-    (acc, p) => acc + Number(p.unidades_vendidas), 
-    0
-  );
-  
-  const kpiTotalIngresos = productos.reduce(
-    (acc, p) => acc + Number(p.ingresos_generados), 
-    0
-  );
-
-  // Top 3 productos
-  const top3 = productos.slice(0, 3);
+  // Calcular KPIs usando la lógica del servicio
+  const { totalVendido, totalIngresos, top3 } =
+    productosService.calcularKPIsProductos(productos);
 
   return (
     <div className="p-8 font-sans">
@@ -144,7 +94,7 @@ export default async function TopProductosPage({
             Total Unidades (Página Actual)
           </p>
           <p className="text-3xl font-bold text-indigo-900">
-            {kpiTotalVendido.toLocaleString('en-US')}
+            {totalVendido.toLocaleString('en-US')}
           </p>
         </div>
 
@@ -153,7 +103,7 @@ export default async function TopProductosPage({
             Ingresos Generados (Página Actual)
           </p>
           <p className="text-3xl font-bold text-green-900">
-            ${kpiTotalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${totalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </p>
         </div>
       </div>
