@@ -13,15 +13,17 @@ services:
     image: postgres:16-alpine
     container_name: lab_reportes_db
     
-    # Variables de entorno para PostgreSQL
+    # Variables de entorno para PostgreSQL (desde .env)
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root_password
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
     
     # Puerto expuesto (host:container)
     ports:
-      - "5437:5432"
+      - "${POSTGRES_PORT:-5437}:5432"
     
     # Volúmenes para persistencia y scripts SQL
     volumes:
@@ -53,19 +55,19 @@ services:
     
     container_name: lab_reportes_dashboard
     
-    # Variables de entorno para la aplicación
+    # Variables de entorno para la aplicación (desde .env)
     environment:
       # Conexión a la base de datos
-      # IMPORTANTE: El host es 'db' (nombre del servicio), no 'localhost'
-      DATABASE_URL: "postgresql://app_client:secure_password@db:5432/postgres"
-      
+      # IMPORTANTE: El host es 'db' (nombre del servicio), not 'localhost'
+      DATABASE_URL: ${DATABASE_URL}
+
       # Variables de Next.js
-      NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: 1
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_TELEMETRY_DISABLED: ${NEXT_TELEMETRY_DISABLED:-1}
     
     # Puerto expuesto (host:container)
     ports:
-      - "3000:3000"
+      - "${DASHBOARD_PORT:-3000}:3000"
     
     # Esperar a que PostgreSQL esté listo antes de iniciar
     depends_on:
