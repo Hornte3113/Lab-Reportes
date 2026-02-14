@@ -3,22 +3,29 @@ import { productosService } from '@/services';
 
 export const dynamic = 'force-dynamic';
 
-export default async function TopProductosPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
+// 1. Definición asíncrona correcta para Next.js 15
+export default async function TopProductosPage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Validar parámetros con Zod (SEGURIDAD)
+  // 2. Esperamos los parámetros
+  const searchParams = await props.searchParams;
+
+  // 3. Validamos filtros (ahora Zod recibe los datos reales)
   const filtros = productosService.FiltroProductosSchema.parse(searchParams);
   const { minVentas, page, limit } = filtros;
 
-  // Obtener datos desde el servicio (backend)
-  const { productos, totalProductos, totalPages } =
-    await productosService.getTopProductos(filtros);
+  // 4. Obtenemos Datos Paginados + Stats Globales en paralelo
+  const [datosPaginados, statsGlobales] = await Promise.all([
+    productosService.getTopProductos(filtros),
+    productosService.getTopProductosStats(filtros)
+  ]);
 
-  // Calcular KPIs usando la lógica del servicio
-  const { totalVendido, totalIngresos, top3 } =
-    productosService.calcularKPIsProductos(productos);
+  const { productos, totalProductos, totalPages } = datosPaginados;
+  // Usamos los totales reales de la BD
+  const { totalVendido, totalIngresos } = statsGlobales;
+  
+  // El Top 3 "de esta vista" lo sacamos del array actual
+  const top3 = productos.slice(0, 3);
 
   return (
     <div className="p-8 font-sans">
@@ -37,7 +44,7 @@ export default async function TopProductosPage({
 
       {/* Formulario de Filtros con Zod */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
-        <form method="GET" action="/reports/top-productos" className="flex flex-wrap gap-4 items-end">
+        <form className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Mínimo Unidades Vendidas
@@ -52,6 +59,7 @@ export default async function TopProductosPage({
             />
           </div>
           
+          {/* Selector de límite agregado para facilitar pruebas */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Resultados por página
@@ -67,7 +75,6 @@ export default async function TopProductosPage({
               <option value="50">50</option>
             </select>
           </div>
-
 
           <input type="hidden" name="page" value="1" />
 
@@ -87,11 +94,11 @@ export default async function TopProductosPage({
         </form>
       </div>
 
-      {/* KPIs Destacados */}
+      {/* KPIs Destacados (Ahora muestran totales reales filtrados) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded shadow">
           <p className="text-sm text-indigo-700 font-bold uppercase mb-1">
-            Total Unidades (Página Actual)
+            Total Unidades (Filtrado)
           </p>
           <p className="text-3xl font-bold text-indigo-900">
             {totalVendido.toLocaleString('en-US')}
@@ -100,7 +107,7 @@ export default async function TopProductosPage({
 
         <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded shadow">
           <p className="text-sm text-green-700 font-bold uppercase mb-1">
-            Ingresos Generados (Página Actual)
+            Ingresos Generados (Filtrado)
           </p>
           <p className="text-3xl font-bold text-green-900">
             ${totalIngresos.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -117,7 +124,9 @@ export default async function TopProductosPage({
           <div className="flex gap-4 flex-wrap">
             {top3.map((p, idx) => (
               <div key={p.producto_id} className="flex items-center gap-2">
-                <span className="text-2xl">{['1', '2', '3'][idx]}</span>
+                <span className="text-2xl font-bold text-yellow-600">
+                   #{p.ranking_ventas}
+                </span>
                 <div>
                   <p className="font-bold text-gray-800">{p.producto}</p>
                   <p className="text-xs text-gray-600">

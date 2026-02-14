@@ -3,9 +3,10 @@ import { query } from '@/lib/db';
 import { ClasificacionCliente } from '@/lib/definitions';
 
 
+
 export const PaginacionClientesSchema = z.object({
   page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(5).max(50).default(10), 
+  limit: z.coerce.number().min(1).max(50).default(5), 
 });
 
 export type PaginacionClientes = z.infer<typeof PaginacionClientesSchema>;
