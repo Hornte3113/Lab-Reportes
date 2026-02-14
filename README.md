@@ -47,7 +47,7 @@ Este proyecto es un dashboard interactivo para visualizar reportes de base de da
 
 ##  Reportes del Dashboard
 
-La lógica pesada se delegó a la base de datos mediante 5 vistas materializadas en /db/reports_vw.sql.
+La lógica pesada se delegó a la base de datos mediante 5 vistas en /db/reports_vw.sql.
 
 ### 1. Ventas por Categoría (`/reports/ventas`)
 
@@ -339,7 +339,7 @@ LEFT JOIN orden_detalles od ON p.id = od.producto_id
 GROUP BY p.id, p.nombre
 LIMIT 10;
 
-# ========== ==========
+# 
  Limit  (cost=0.28..5.63 rows=10 width=430) (actual time=0.336..0.352 rows=10 loops=1)
    Buffers: shared hit=2 read=2
    ->  GroupAggregate  (cost=0.28..64.48 rows=120 width=430) (actual time=0.334..0.349 rows=10 loops=1)
@@ -353,7 +353,7 @@ LIMIT 10;
                ->  Index Scan using idx_orden_detalles_producto_id on orden_detalles od  (cost=0.14..12.30 rows=11 width=8) (actual time=0.112..0.113 rows=10 loops=1)
 
 
-# ==========  ==========
+#
 ```
 
 
@@ -450,263 +450,91 @@ GROUP BY status;
 
 ---
 
-##  Trade-offs: SQL vs Next.js
+## Trade-offs: Decisiones de Diseño
 
-### Decisiones tecnicas
 
-#### 1. **Cálculos en SQL (Views) - ELEGIDO**
+### Por qué paginación server-side
 
-**Qué se calculó en SQL:**
-- Agregaciones (SUM, COUNT, AVG, MAX)
-- Clasificaciones con CASE (segmentos, niveles de stock)
-- Window Functions (rankings, porcentajes acumulados)
-- Campos derivados (tasa_rotacion, roi_producto, participacion_pct)
+Los reportes traen 10-50 registros por página usando `LIMIT/OFFSET` en SQL.
 
-**Por qué en SQL:**
--  **Performance:** PostgreSQL optimiza agregaciones masivas más rápido que JavaScript
--  **Menos datos transferidos:** Se envía data agregada, no miles de filas crudas
--  **Reutilización:** Múltiples reportes consumen las mismas views
--  **Índices:** PostgreSQL aprovecha índices para acelerar GROUP BY
+**Razón:** Si tuviéramos 10,000 productos y los cargáramos todos de golpe, el navegador se trabaría. Con paginación server-side, la primera carga es rápida. Lo malo es que cada cambio de página requiere un nuevo request, pero es mucho mejor que congelar el navegador del usuario.
 
-**Trade-off aceptado:**
--  Lógica de negocio dividida (parte en SQL, parte en Next.js)
+### Por qué Zod para validación
 
----
+Todos los filtros (page, limit, nivelStock) se validan con schemas de Zod antes de llegar a SQL.
 
-#### 2. **Paginación Server-Side **
+**Razón:** Zod bloquea inputs inválidos (como `page=-1` o `limit=999999`) antes de tocar la base de datos. Además nos da type-safety gratis en TypeScript. El costo es 15kb extra en el bundle, pero la seguridad y DX lo compensan.
 
-**Implementación:**
-```sql
-SELECT * FROM view_top_productos
-WHERE unidades_vendidas >= $1
-LIMIT $2 OFFSET $3
-```
+### Lógica en SQL vs. Next.js
 
-**Por qué en servidor:**
--  **Escalabilidad:** No sobrecarga el cliente con miles de filas
--  **Performance inicial:** Carga rápida de página (solo 10-50 registros)
--  **Menor uso de memoria:** Cliente no almacena dataset completo
+Decidí mover las agregaciones, promedios y rankings a SQL (Views).
 
-**Trade-off aceptado:**
--  Requiere request adicional al cambiar de página
--  Sin búsqueda instantánea del lado del cliente
-
-**Alternativa rechazada:**
-Paginación client-side (cargar todo y paginar en React) - Rechazada porque con 1000+ productos la carga inicial sería muy lenta.
+Por qué: PostgreSQL es mucho más eficiente procesando joins y sumas de miles de registros que JavaScript. Además, mantenemos el backend "ligero" recibiendo ya los datos procesados.
 
 ---
 
-#### 3. **Validación con Zod - ELEGIDO**
+## Seguridad y Threat Model
 
-**Por qué Zod:**
--  **Type-safety:** TypeScript infiere tipos automáticamente
--  **Validación declarativa:** Schema claro y mantenible
--  **Prevención de SQL Injection:** Valida antes de llegar a SQL
+### SQL Injection
 
-**Ejemplo:**
+Todas las consultas en Next.js usan parámetros vinculados (`$1`, `$2`) a través de la librería `pg`. Esto impide inyección de código SQL en los filtros.
+
 ```typescript
-const FiltroInventarioSchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  nivelStock: z.enum(['todos', 'Sin Stock', 'Crítico', ...])
-});
-```
-
-**Trade-off aceptado:**
--  Dependencia adicional (bundle size +15kb)
--  Pero ganamos seguridad y developer experience
-
----
-
-#### 4. **KPIs Calculados Aparte - ELEGIDO**
-
-**Implementación:**
-```typescript
-// Query separada para KPIs globales
-const stats = await query(`
-  SELECT SUM(valor_inventario) as valor_total,
-         SUM(stock_actual) as stock_total
-  FROM view_inventario_rotacion
-  WHERE nivel_stock = $1
-`, [nivelStock]);
-```
-
-**Por qué separado de la paginación:**
--  **Datos correctos:** KPI global no debe cambiar al cambiar de página
--  **Cache:** Puede cachearse independientemente
--  **Claridad:** Queries especializadas son más fáciles de optimizar
-
-**Trade-off aceptado:**
--  2 queries en lugar de 1 (overhead mínimo ejecutándolas en paralelo con Promise.all)
-
----
-
-#### 5. **No usar ORM (Prisma/Drizzle)**
-
-**Por qué queries crudas con `node-postgres`:**
--  **Control total:** Necesitamos Window Functions, CTEs complejas
--  **Performance:** Sin overhead de ORM
--  **Aprendizaje:** El objetivo del lab es dominar SQL avanzado
-
-**Trade-off aceptado:**
--  Sin type-safety automático (mitigado con interfaces TypeScript)
--  Migraciones manuales
-
----
-
-##  Threat Model y Seguridad
-
-### Amenazas Mitigadas
-
-#### 1. **SQL Injection** 
-
-**Amenaza:** Inyección de código SQL malicioso a través de inputs del usuario.
-
-**Mitigación:**
--  **Queries parametrizadas:** Todas las queries usan `$1, $2` placeholders
--  **Validación con Zod:** Inputs validados antes de llegar a SQL
--  **Whitelist en enums:** `nivelStock` solo acepta valores predefinidos
-
-**Ejemplo de código seguro:**
-```typescript
-//  VULNERABLE (concatenación)
+//  VULNERABLE
 const query = `SELECT * FROM productos WHERE nombre = '${userInput}'`;
 
-//  SEGURO (parametrizado)
+//  SEGURO
 const query = `SELECT * FROM productos WHERE nombre = $1`;
-await db.query(query, [userInput]); // Escapado automáticamente
+await db.query(query, [userInput]);
 ```
 
-**Evidencia de protección:**
-```typescript
-const FiltroInventarioSchema = z.object({
-  nivelStock: z.enum(['todos', 'Sin Stock', 'Crítico', 'Bajo', 'Normal', 'Alto'])
-});
-// Si el usuario envía "'; DROP TABLE usuarios; --", Zod lo rechaza antes de llegar a SQL
-```
+Además, todos los filtros se validan con Zod antes de tocar SQL. Si alguien intenta enviar `'; DROP TABLE usuarios; --`, Zod lo rechaza inmediatamente.
 
----
+### Rol de Aplicación (app_client)
 
-#### 2. **Credenciales Expuestas en Cliente** 
+La aplicación NO se conecta como `postgres` (superusuario). Se creó un usuario específico que SOLO tiene permiso de lectura (`SELECT`) sobre las 5 vistas.
 
-**Amenaza:** Filtración de DATABASE_URL o credenciales en el código del cliente.
+Si la app es comprometida, el atacante NO puede:
+- Leer las tablas base (con contraseñas de usuarios)
+- Borrar datos (`DROP`/`DELETE`)
+- Modificar datos (`UPDATE`/`INSERT`)
+- Crear nuevos usuarios o roles
 
-**Mitigación:**
--  **Server Components:** Data fetching solo en servidor
--  **Variables de entorno:** DATABASE_URL solo accesible en servidor
--  **No API Routes públicas:** Todos los services son server-only
-
-**Evidencia:**
-```typescript
-// dashboard/src/app/reports/ventas/page.tsx
-export default async function ReporteVentas() {
-  //  Server Component - ejecuta en servidor
-  const datos = await ventasService.getVentasPorCategoria();
-  // DATABASE_URL nunca llega al bundle del cliente
-}
-```
-
-**Verificación:**
-```bash
-# Inspeccionar bundle del cliente (no debe contener DATABASE_URL)
-docker exec -it lab_reportes_dashboard cat /app/.next/static/chunks/*.js | grep -i "database_url"
-# Resultado esperado: vacío
-```
-
----
-
-#### 3. **Acceso Directo a Tablas Base** 
-
-**Amenaza:** Aplicación lee/modifica tablas base (usuarios, productos, ordenes) directamente.
-
-**Mitigación:**
--  **Rol con permisos mínimos:** `app_client` solo tiene SELECT en views
--  **REVOKE en tablas:** Permisos explícitamente revocados
--  **Principio de menor privilegio:** Solo lo necesario para funcionar
-
-**Configuración de seguridad (db/05_roles.sh):**
 ```sql
---  Permisos granulares solo en views
+-- Permisos mínimos
 GRANT SELECT ON view_ventas_por_categoria TO app_client;
 GRANT SELECT ON view_top_productos TO app_client;
 GRANT SELECT ON view_clasificacion_clientes TO app_client;
 GRANT SELECT ON view_estado_ordenes TO app_client;
 GRANT SELECT ON view_inventario_rotacion TO app_client;
 
---  Revocar acceso a tablas base
-REVOKE ALL ON categorias, usuarios, productos, ordenes, orden_detalles
-FROM app_client;
+-- Bloquear acceso a tablas
+REVOKE ALL ON categorias, usuarios, productos, ordenes, orden_detalles FROM app_client;
 ```
 
-**Verificación:**
-```sql
--- Conectarse como app_client y probar
-\c postgres app_client
+### Sanitización de Inputs
 
---  Debe funcionar
-SELECT * FROM view_ventas_por_categoria LIMIT 1;
+Los filtros como `nivelStock` o `page` se validan contra una lista blanca (enums en Zod). Si el valor no coincide, se rechaza antes de llegar a la base de datos.
 
---  Debe fallar con "permission denied"
-SELECT * FROM usuarios LIMIT 1;
-```
-
----
-
-#### 4. **Privilege Escalation** 
-
-**Amenaza:** Usuario de aplicación obtiene permisos administrativos.
-
-**Mitigación:**
--  **NOSUPERUSER:** app_client no puede crear otros usuarios
--  **NOCREATEDB:** No puede crear bases de datos
--  **NOCREATEROLE:** No puede modificar permisos
-
-**Configuración:**
-```sql
-CREATE ROLE app_client WITH
-    LOGIN
-    PASSWORD 'secure_password'
-    NOSUPERUSER      --  No puede hacer nada de admin
-    NOCREATEDB       --  No puede crear DBs
-    NOCREATEROLE     --  No puede crear roles
-    NOREPLICATION;   --  No puede replicar
-```
-
----
-
-#### 5. **Input Validation Bypass** 
-
-**Amenaza:** Valores fuera de rango o maliciosos (números negativos, límites gigantes).
-
-**Mitigación:**
--  **Zod constraints:** min, max, enum, coerce
--  **Valores por defecto seguros:** Fallback a valores válidos
-
-**Ejemplo:**
 ```typescript
-const FiltroProductosSchema = z.object({
-  page: z.coerce.number().min(1).default(1),        //  No permite page=0 o negativo
-  limit: z.coerce.number().min(1).max(50).default(10), //  Máximo 50 registros
-  minVentas: z.coerce.number().min(0).default(0)    //  No permite negativos
+const FiltroInventarioSchema = z.object({
+  nivelStock: z.enum(['todos', 'Sin Stock', 'Crítico', 'Bajo', 'Normal', 'Alto']),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(5).max(50).default(10)
 });
-
-// Si el usuario envía ?limit=999999, Zod lo limita a 50
 ```
 
----
+Si alguien intenta `?page=-100` o `?limit=999999`, Zod lo bloquea y usa los valores por defecto.
 
+### Credenciales en Servidor
 
----
+La cadena de conexión `DATABASE_URL` se maneja exclusivamente en el servidor (Server Components de Next.js), nunca se expone en el bundle de JavaScript del cliente.
 
-### Resumen de Seguridad
-
-| Amenaza | Severidad | Mitigación | Estado |
-|---------|-----------|------------|--------|
-| SQL Injection |  CRÍTICA | Queries parametrizadas + Zod |  Mitigada |
-| Credenciales expuestas |  CRÍTICA | Server Components + env vars |  Mitigada |
-| Acceso a tablas base |  ALTA | Permisos mínimos en rol |  Mitigada |
-| Privilege escalation |  ALTA | NOSUPERUSER/NOCREATEROLE |  Mitigada |
-| Input validation |  MEDIA | Zod schemas con constraints |  Mitigada |
-| Information disclosure |  MEDIA | Views agregadas, no PII |  Mitigada |
+Puedes verificarlo inspeccionando el bundle:
+```bash
+docker exec -it lab_reportes_dashboard cat /app/.next/static/chunks/*.js | grep -i "database_url"
+# Resultado: vacío
+```
 
 ---
 
@@ -849,35 +677,7 @@ SELECT * FROM productos WHERE categoria_id = 5;
 **Usé:**
 - Agregué las queries de EXPLAIN al README para evidencia
 
----
 
-### Proceso de Verificación Manual
-
-**Checklist de validación realizado:**
-
--  Todas las views ejecutan sin errores
--  Los índices mejoran performance (verificado con EXPLAIN)
--  La paginación devuelve resultados correctos
--  Zod rechaza inputs inválidos (probado con valores negativos y fuera de rango)
--  El rol `app_client` no puede acceder a tablas base
--  Los KPIs coinciden con sumas manuales
-
-**Testing realizado:**
-```bash
-# Test 1: Inyección SQL (debe fallar)
-curl "http://localhost:3000/reports/inventario?nivelStock='; DROP TABLE usuarios; --"
-# Resultado: Zod rechaza el input
-
-# Test 2: Paginación (debe devolver registros 11-20)
-curl "http://localhost:3000/reports/clientes?page=2&limit=10"
-# Resultado: OK, muestra página 2
-
-# Test 3: Límite fuera de rango (debe limitarse a 50)
-curl "http://localhost:3000/reports/top-productos?limit=999"
-# Resultado: Zod lo limita a 50
-```
-
----
 
 ## Evidencia de Implementación
 
@@ -931,16 +731,12 @@ ORDER BY tablename, indexname;"
 ### Verificación de Permisos del Rol app_client
 
 ```
-
 docker exec -it lab_reportes_db psql -U postgres -d postgres -c "
 SELECT table_name, privilege_type
 FROM information_schema.role_table_grants
 WHERE grantee = 'app_client'
 ORDER BY table_name;"
 
-
-
-```
          table_name          | privilege_type
 -----------------------------+----------------
  view_clasificacion_clientes | SELECT
@@ -948,13 +744,14 @@ ORDER BY table_name;"
  view_inventario_rotacion    | SELECT
  view_top_productos          | SELECT
  view_ventas_por_categoria   | SELECT
+(5 rows)
 ```
 
 ---
 
 
 
-##  Tecnologías Utilizadas
+## Tecnologías Utilizadas
 
 - **Frontend:** Next.js 15 (App Router), React, TypeScript, TailwindCSS
 - **Backend:** Node.js, node-postgres
@@ -965,7 +762,7 @@ ORDER BY table_name;"
 
 ---
 
-##  Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 LabReportes/
@@ -992,11 +789,33 @@ LabReportes/
 │   └── Dockerfile
 ├── docker-compose.yml         # Orchestration 
 ├── .env.example               # Template de configuración 
+├── scripts/
+│   └── verify.sh              # Script de verificación
 └── README.md                  # Este archivo 
 
- 
 ```
 
 ---
 
 
+
+## Autor
+
+**Nombre:** Alix Anahi Montesinos Grajales
+**Matrícula:** 243777
+**Fecha de Entrega:** 13 de Febrero de 2026
+
+---
+
+## Cómo Verificar el Proyecto
+
+Ejecuta el script de verificación:
+
+```bash
+chmod +x scripts/verify.sh
+./scripts/verify.sh
+```
+
+Debe mostrar que las 5 views funcionan correctamente y que el rol app_client tiene exactamente 5 permisos de SELECT.
+
+---
